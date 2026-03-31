@@ -1,4 +1,4 @@
-import { getCurrentUser } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import type { AccountMember, AccountRole, AppAccount } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -18,12 +18,8 @@ type AccountRow = {
 };
 
 export async function getAccountContext(preferredSlug?: string) {
-  const user = await getCurrentUser();
+  const user = await requireUser();
   const supabase = await createClient();
-
-  if (!user) {
-    throw new Error("Unauthorized.");
-  }
 
   const membershipsRes = await supabase
     .from("account_members")
@@ -85,12 +81,8 @@ export async function getAccountContext(preferredSlug?: string) {
 }
 
 export async function requireAccountAccess(accountId?: string) {
-  const user = await getCurrentUser();
+  const user = await requireUser();
   const supabase = await createClient();
-
-  if (!user) {
-    throw new Error("Unauthorized.");
-  }
 
   if (!accountId) {
     throw new Error("Missing accountId.");
