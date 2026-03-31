@@ -19,6 +19,13 @@ Next.js + Supabase-migrasjon av den opprinnelige `økonomi.html`-appen.
 - Import av gammel `localStorage`-data til Supabase.
 - Row Level Security på profiler, kontoer, medlemskap, workspaces, transaksjoner og faste poster.
 - Enkel medlemsflyt i appen: owner/admin kan legge til andre brukere på en konto via e-post.
+- Seedede bankregler for kjente merchants og abonnementer i `lib/bank-seed-rules.ts`.
+
+## Seedede bankregler
+
+- Legg kjente merchants, abonnementer og fakturamønstre i [lib/bank-seed-rules.ts](/Users/oscar/Documents/kroner-app/lib/bank-seed-rules.ts).
+- Reglene kjøres før historisk læring og review, og kan derfor auto-importere kjente poster mer aggressivt.
+- Bruk dette for ting dere allerede vet eksisterer, og la review-flyten lære resten over tid.
 
 ## Sikkerhet
 

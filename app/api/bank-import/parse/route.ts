@@ -6,6 +6,7 @@ import {
   buildReviewItemsFromParsed,
   fetchBankLearningExamples,
   fetchExistingEntryMatches,
+  fetchKnownBankRules,
   splitParsedReviewItems,
   summarizeParsedRows
 } from "@/lib/bank-import-server";
@@ -239,9 +240,10 @@ export async function POST(request: Request) {
       throw new Error(batchError?.message || "Could not create import batch.");
     }
 
-    const [entries, learningExamples] = await Promise.all([
+    const [entries, learningExamples, knownRules] = await Promise.all([
       fetchExistingEntryMatches(account.accountId),
-      fetchBankLearningExamples(account.accountId)
+      fetchBankLearningExamples(account.accountId),
+      fetchKnownBankRules(account.accountId)
     ]);
     const importContext = {
       defaultWorkspaceId: workspace.id,
@@ -252,6 +254,7 @@ export async function POST(request: Request) {
       parsedRows,
       entries,
       learningExamples,
+      knownRules,
       importContext
     );
     const { autoApply, needsReview } = splitParsedReviewItems(reviewItems, importContext);

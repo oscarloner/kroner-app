@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EntryRow } from "@/components/EntryRow";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
@@ -61,6 +61,7 @@ export function TransactionsClient({
   const [bulkCategory, setBulkCategory] = useState<(typeof CATEGORIES)[number]>("Annet");
   const [bulkWorkspaceId, setBulkWorkspaceId] = useState(currentWorkspaceId === "all" ? "" : currentWorkspaceId);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const workspaceMap = useMemo(
     () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
@@ -98,6 +99,24 @@ export function TransactionsClient({
   const allSelectableVisibleIds = selectableEntries.map((entry) => entry.id);
   const allVisibleSelected =
     allSelectableVisibleIds.length > 0 && allSelectableVisibleIds.every((id) => selectedIds.includes(id));
+  const someVisibleSelected = allSelectableVisibleIds.some((id) => selectedIds.includes(id));
+
+  useEffect(() => {
+    if (!selectAllRef.current) {
+      return;
+    }
+
+    selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected;
+  }, [allVisibleSelected, someVisibleSelected]);
+
+  function toggleVisibleSelection(checked: boolean) {
+    if (checked) {
+      setSelectedIds((current) => Array.from(new Set([...current, ...allSelectableVisibleIds])));
+      return;
+    }
+
+    setSelectedIds((current) => current.filter((id) => !allSelectableVisibleIds.includes(id)));
+  }
 
   async function handleBulkDelete() {
     if (selectedIds.length === 0 || bulkBusy) {
@@ -193,88 +212,80 @@ export function TransactionsClient({
       />
       <div className={styles.content}>
         <div className={styles.page}>
-          <div className={styles.filterRow}>
-            {FILTERS.map((item) => (
-              <button
-                key={item.value}
-                className={cx(styles.filterChip, item.value === filter && styles.filterChipActive)}
-                onClick={() => setFilter(item.value)}
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-
-          <div className={styles.bulkBar}>
-            <label className={styles.bulkSelectAll}>
-              <input
-                checked={allVisibleSelected}
-                className={styles.txCheckbox}
-                onChange={(event) => {
-                  if (event.target.checked) {
-                    setSelectedIds((current) =>
-                      Array.from(new Set([...current, ...allSelectableVisibleIds]))
-                    );
-                    return;
-                  }
-
-                  setSelectedIds((current) =>
-                    current.filter((id) => !allSelectableVisibleIds.includes(id))
-                  );
-                }}
-                type="checkbox"
-              />
-              Velg synlige
-            </label>
-            <div className={styles.bulkCount}>
-              {selectedIds.length > 0 ? `${selectedIds.length} valgt` : "Ingen valgt"}
-            </div>
-            <select
-              className={styles.select}
-              disabled={selectedIds.length === 0 || bulkBusy}
-              onChange={(event) => setBulkCategory(event.target.value as (typeof CATEGORIES)[number])}
-              value={bulkCategory}
-            >
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.select}
-              disabled={selectedIds.length === 0 || bulkBusy}
-              onChange={(event) => setBulkWorkspaceId(event.target.value)}
-              value={bulkWorkspaceId}
-            >
-              <option value="">Uten konto</option>
-              {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </option>
-              ))}
-            </select>
-            <button
-              className={styles.smallButton}
-              disabled={selectedIds.length === 0 || bulkBusy}
-              onClick={handleBulkRecategorize}
-              type="button"
-            >
-              {bulkBusy ? "Jobber..." : "Oppdater valgte"}
-            </button>
-            <button
-              className={styles.smallButton}
-              disabled={selectedIds.length === 0 || bulkBusy}
-              onClick={handleBulkDelete}
-              type="button"
-            >
-              Slett valgte
-            </button>
+          <div className={styles.listToolbar}>
+            {selectedIds.length > 0 ? (
+              <div className={styles.bulkBar}>
+                <div className={styles.bulkCount}>{selectedIds.length} valgt</div>
+                <select
+                  className={cx(styles.select, styles.bulkSelect)}
+                  disabled={bulkBusy}
+                  onChange={(event) => setBulkCategory(event.target.value as (typeof CATEGORIES)[number])}
+                  value={bulkCategory}
+                >
+                  {CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={cx(styles.select, styles.bulkSelect)}
+                  disabled={bulkBusy}
+                  onChange={(event) => setBulkWorkspaceId(event.target.value)}
+                  value={bulkWorkspaceId}
+                >
+                  <option value="">Uten konto</option>
+                  {workspaces.map((workspace) => (
+                    <option key={workspace.id} value={workspace.id}>
+                      {workspace.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className={styles.smallButton}
+                  disabled={bulkBusy}
+                  onClick={handleBulkRecategorize}
+                  type="button"
+                >
+                  {bulkBusy ? "Jobber..." : "Oppdater valgte"}
+                </button>
+                <button
+                  className={styles.smallButton}
+                  disabled={bulkBusy}
+                  onClick={handleBulkDelete}
+                  type="button"
+                >
+                  Slett valgte
+                </button>
+              </div>
+            ) : (
+              <div className={styles.filterBar}>
+                <select
+                  className={cx(styles.select, styles.filterSelect)}
+                  onChange={(event) => setFilter(event.target.value as (typeof FILTERS)[number]["value"])}
+                  value={filter}
+                >
+                  {FILTERS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className={styles.tableHeader}>
-            <div className={styles.th} />
+            <label className={cx(styles.th, styles.tableHeaderCheckbox)}>
+              <input
+                ref={selectAllRef}
+                aria-label="Velg alle synlige"
+                checked={allVisibleSelected}
+                className={styles.txCheckbox}
+                onChange={(event) => toggleVisibleSelection(event.target.checked)}
+                type="checkbox"
+              />
+            </label>
             <div className={styles.th}>Navn</div>
             <div className={styles.th}>Dato</div>
             <div className={styles.th}>Kategori</div>

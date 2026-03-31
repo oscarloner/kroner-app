@@ -170,6 +170,23 @@ export type OcrSuggestion = AiSuggestion & {
 
 export type BankProvider = "nordea_csv";
 
+export type KnownBankRule = {
+  id: string;
+  accountId: string;
+  createdBy: string;
+  label: string;
+  normalizedIncludes: string[];
+  paymentType: string | null;
+  entryType: EntryType | null;
+  transactionKind: BankTransactionKind;
+  cat: string;
+  workspaceId: string | null;
+  confidenceScore: number;
+  reportingTreatment: BankReportingTreatment;
+  autoApply: boolean;
+  createdAt: string;
+};
+
 export type BankImportBatch = {
   id: string;
   accountId: string;

@@ -9,7 +9,8 @@ const NAV_ITEMS = [
   { href: "/transaksjoner", label: "Transaksjoner", icon: "↕" },
   { href: "/faste", label: "Faste inntekter", icon: "★" },
   { href: "/faste-utgifter", label: "Faste utgifter", icon: "↻" },
-  { href: "/graf", label: "Graf", icon: "↗" }
+  { href: "/graf", label: "Graf", icon: "↗" },
+  { href: "/regler", label: "Regler", icon: "⚙" }
 ] as const;
 
 function cx(...values: Array<string | false | undefined>) {

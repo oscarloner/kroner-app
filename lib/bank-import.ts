@@ -10,8 +10,10 @@ import type {
   BankTransactionLinkKind,
   BankMatchCandidate,
   BankSuggestion,
+  KnownBankRule,
   EntryType
 } from "@/lib/types";
+import { findKnownBankRule, findSeededBankRule } from "@/lib/bank-seed-rules";
 
 type ParsedCsvRow = Record<string, string>;
 
@@ -247,6 +249,7 @@ function classifyParsedTransaction(args: {
   isOwnTransfer: boolean;
   likelyTransfer: boolean;
   isReserved: boolean;
+  knownRules?: KnownBankRule[];
 }): {
   transactionKind: BankTransactionKind;
   confidenceScore: number;
@@ -254,6 +257,28 @@ function classifyParsedTransaction(args: {
   reviewReason: string;
   reportingTreatment: BankReportingTreatment;
 } {
+  const knownRule = args.knownRules ? findKnownBankRule(args.knownRules, args) : null;
+  if (knownRule) {
+    return {
+      transactionKind: knownRule.transactionKind,
+      confidenceScore: knownRule.confidenceScore,
+      classificationSource: "rule",
+      reviewReason: `Kjent regel: ${knownRule.label}.`,
+      reportingTreatment: knownRule.reportingTreatment
+    };
+  }
+
+  const seededRule = findSeededBankRule(args);
+  if (seededRule) {
+    return {
+      transactionKind: seededRule.transactionKind,
+      confidenceScore: seededRule.confidenceScore,
+      classificationSource: "rule",
+      reviewReason: seededRule.reviewReason,
+      reportingTreatment: seededRule.reportingTreatment ?? "normal"
+    };
+  }
+
   if (args.isReserved) {
     return {
       transactionKind: "other" as BankTransactionKind,
@@ -530,11 +555,54 @@ export function findProbableMatch(
 }
 
 export function selectBankSuggestion(
-  transaction: Pick<ParsedNordeaTransaction, "normalizedLabel" | "paymentType" | "entryType">,
+  transaction: Pick<ParsedNordeaTransaction, "normalizedLabel" | "paymentType" | "entryType"> & {
+    rawLabel?: string;
+  },
   learningExamples: BankLearningExample[],
+  knownRules: KnownBankRule[] = [],
   fallbackMatch?: BankMatchCandidate | null,
   importContext?: BankImportContext
 ): BankSuggestion | null {
+  const knownRule = findKnownBankRule(knownRules, {
+    paymentType: transaction.paymentType,
+    normalizedLabel: transaction.normalizedLabel,
+    rawLabel: transaction.rawLabel ?? transaction.normalizedLabel,
+    entryType: transaction.entryType
+  });
+
+  if (knownRule) {
+    return {
+      type: knownRule.entryType ?? transaction.entryType,
+      cat: knownRule.cat,
+      workspaceId: knownRule.workspaceId ?? importContext?.defaultWorkspaceId ?? null,
+      transactionKind: knownRule.transactionKind,
+      confidenceScore: knownRule.confidenceScore,
+      classificationSource: "rule",
+      reviewReason: `Kjent regel: ${knownRule.label}.`,
+      reportingTreatment: knownRule.reportingTreatment
+    };
+  }
+
+  const seededRule = findSeededBankRule({
+    paymentType: transaction.paymentType,
+    normalizedLabel: transaction.normalizedLabel,
+    rawLabel: transaction.rawLabel ?? transaction.normalizedLabel,
+    entryType: transaction.entryType
+  });
+
+  if (seededRule) {
+    return {
+      type: transaction.entryType,
+      cat: seededRule.cat,
+      workspaceId: importContext?.defaultWorkspaceId ?? null,
+      transactionKind: seededRule.transactionKind,
+      confidenceScore: seededRule.confidenceScore,
+      classificationSource: "rule",
+      reviewReason: seededRule.reviewReason,
+      reportingTreatment: seededRule.reportingTreatment ?? "normal"
+    };
+  }
+
   let bestScore = 0;
   let bestSuggestion: BankSuggestion | null = null;
 
@@ -665,6 +733,18 @@ export function classifyAutoApplyCandidate(
       item,
       action: "import_new",
       reason: "safe_applaus_income"
+    };
+  }
+
+  if (
+    item.suggestion?.classificationSource === "rule" &&
+    item.suggestion.confidenceScore >= 90 &&
+    item.suggestedAction === "import_new"
+  ) {
+    return {
+      item,
+      action: "import_new",
+      reason: "safe_suggestion"
     };
   }
 

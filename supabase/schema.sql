@@ -168,6 +168,23 @@ create table if not exists public.bank_learning_examples (
   unique (account_id, normalized_label, payment_type, entry_type, cat, workspace_id)
 );
 
+create table if not exists public.bank_known_rules (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  created_by uuid not null references auth.users(id) on delete restrict,
+  label text not null,
+  normalized_includes text[] not null default '{}'::text[],
+  payment_type text,
+  entry_type text check (entry_type in ('income', 'expense')),
+  transaction_kind text not null default 'other',
+  cat text not null default 'Annet',
+  workspace_id uuid references public.workspaces(id) on delete set null,
+  confidence_score integer not null default 99,
+  reporting_treatment text not null default 'normal',
+  auto_apply boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.transaction_links (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
@@ -313,6 +330,7 @@ alter table public.recurring_items enable row level security;
 alter table public.bank_import_batches enable row level security;
 alter table public.bank_transactions enable row level security;
 alter table public.bank_learning_examples enable row level security;
+alter table public.bank_known_rules enable row level security;
 alter table public.transaction_links enable row level security;
 
 create policy "Users read own profile"
@@ -420,6 +438,17 @@ using (private.is_account_member(account_id));
 
 create policy "Members manage bank learning examples"
 on public.bank_learning_examples
+for all
+using (private.is_account_member(account_id))
+with check (private.is_account_member(account_id));
+
+create policy "Members read known bank rules"
+on public.bank_known_rules
+for select
+using (private.is_account_member(account_id));
+
+create policy "Members manage known bank rules"
+on public.bank_known_rules
 for all
 using (private.is_account_member(account_id))
 with check (private.is_account_member(account_id));

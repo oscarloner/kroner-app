@@ -229,6 +229,47 @@ export function BankImportModal({
     }));
   }
 
+  async function handleCreateKnownRule(item: BankImportReviewItem) {
+    const decision =
+      decisions[item.id] ?? defaultDecision(item, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId);
+
+    setBusy(true);
+    setStatus("");
+
+    try {
+      const response = await fetch("/api/bank-known-rules", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          accountId,
+          label: item.rawLabel,
+          normalizedIncludes: [item.normalizedLabel],
+          paymentType: item.paymentType || null,
+          entryType: decision.type,
+          transactionKind: decision.transactionKind,
+          cat: decision.cat,
+          workspaceId: decision.workspaceId,
+          confidenceScore: Math.max(95, item.confidenceScore),
+          reportingTreatment: item.reportingTreatment,
+          autoApply: true
+        })
+      });
+      const json = (await response.json()) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(json.message || "Kunne ikke lagre kjent regel.");
+      }
+
+      setStatus(`Lagret kjent regel for "${item.rawLabel}".`);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Kunne ikke lagre kjent regel.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleApply() {
     if (!batchId) {
       return;
@@ -417,109 +458,117 @@ export function BankImportModal({
 
                     <div className={styles.bankImportHint}>{item.reviewReason}</div>
 
-                    <div className={styles.fieldRow}>
-                      <div className={styles.field}>
-                        <label className={styles.fieldLabel}>Handling</label>
-                        <select
-                          className={styles.select}
-                          onChange={(event) =>
-                            updateDecision(item.id, {
-                              action: event.target.value as BankImportAction
-                            })
-                          }
-                          value={decision.action}
-                        >
-                          <option value="import_new">Importer som ny</option>
-                          {item.suggestedMatch ? <option value="link_existing">Koble til eksisterende</option> : null}
-                          <option value="mark_transfer">Transfer/private</option>
-                          <option value="ignore">Ignorer</option>
-                        </select>
+                    <div className={styles.bankImportLowerArea}>
+                      <div className={styles.bankImportActionsPanel}>
+                        <div className={styles.bankImportPanelLabel}>Valg</div>
+                        <div className={styles.bankImportDecisionRow}>
+                          <div className={cx(styles.field, styles.bankImportPrimaryField)}>
+                            <label className={styles.fieldLabel}>Handling</label>
+                            <select
+                              className={styles.select}
+                              onChange={(event) =>
+                                updateDecision(item.id, {
+                                  action: event.target.value as BankImportAction
+                                })
+                              }
+                              value={decision.action}
+                            >
+                              <option value="import_new">Importer som ny</option>
+                              {item.suggestedMatch ? <option value="link_existing">Koble til eksisterende</option> : null}
+                              <option value="mark_transfer">Transfer/private</option>
+                              <option value="ignore">Ignorer</option>
+                            </select>
+                          </div>
+
+                          {decision.action === "link_existing" && item.suggestedMatch ? (
+                            <div className={cx(styles.field, styles.bankImportSecondaryField)}>
+                              <label className={styles.fieldLabel}>Treff</label>
+                              <select
+                                className={styles.select}
+                                onChange={(event) =>
+                                  updateDecision(item.id, { matchEntryId: event.target.value || null })
+                                }
+                                value={decision.matchEntryId ?? item.suggestedMatch.entryId}
+                              >
+                                <option value={item.suggestedMatch.entryId}>
+                                  {item.suggestedMatch.entryName} ({item.suggestedMatch.score})
+                                </option>
+                              </select>
+                            </div>
+                          ) : (
+                            <div className={cx(styles.field, styles.bankImportSecondaryField)}>
+                              <label className={styles.fieldLabel}>Type</label>
+                              <select
+                                className={styles.select}
+                                onChange={(event) =>
+                                  updateDecision(item.id, { type: event.target.value as EntryType })
+                                }
+                                value={decision.type}
+                              >
+                                <option value="expense">Utgift</option>
+                                <option value="income">Inntekt</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {decision.action === "link_existing" && item.suggestedMatch ? (
-                        <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Treff</label>
-                          <select
-                            className={styles.select}
-                            onChange={(event) =>
-                              updateDecision(item.id, { matchEntryId: event.target.value || null })
-                            }
-                            value={decision.matchEntryId ?? item.suggestedMatch.entryId}
-                          >
-                            <option value={item.suggestedMatch.entryId}>
-                              {item.suggestedMatch.entryName} ({item.suggestedMatch.score})
-                            </option>
-                          </select>
+                      {decision.action === "import_new" ? (
+                        <div className={styles.bankImportDetailsPanel}>
+                          <div className={styles.bankImportPanelLabel}>Detaljer for ny transaksjon</div>
+                          <div className={styles.bankImportDetailRow}>
+                            <div className={styles.field}>
+                              <label className={styles.fieldLabel}>Transaksjonstype</label>
+                              <select
+                                className={styles.select}
+                                onChange={(event) =>
+                                  updateDecision(item.id, {
+                                    transactionKind: event.target.value as BankTransactionKind
+                                  })
+                                }
+                                value={decision.transactionKind}
+                              >
+                                {TRANSACTION_KIND_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className={styles.field}>
+                              <label className={styles.fieldLabel}>Kategori</label>
+                              <select
+                                className={styles.select}
+                                onChange={(event) => updateDecision(item.id, { cat: event.target.value })}
+                                value={decision.cat}
+                              >
+                                {CATEGORIES.map((category) => (
+                                  <option key={category} value={category}>
+                                    {category}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className={styles.field}>
+                              <label className={styles.fieldLabel}>Tilhører</label>
+                              <select
+                                className={styles.select}
+                                onChange={(event) =>
+                                  updateDecision(item.id, { workspaceId: event.target.value || null })
+                                }
+                                value={workspaceId}
+                              >
+                                {workspaces.map((workspace) => (
+                                  <option key={workspace.id} value={workspace.id}>
+                                    {workspace.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
                         </div>
-                      ) : (
-                        <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Type</label>
-                          <select
-                            className={styles.select}
-                            onChange={(event) =>
-                              updateDecision(item.id, { type: event.target.value as EntryType })
-                            }
-                            value={decision.type}
-                          >
-                            <option value="expense">Utgift</option>
-                            <option value="income">Inntekt</option>
-                          </select>
-                        </div>
-                      )}
+                      ) : null}
                     </div>
-
-                    {decision.action === "import_new" ? (
-                      <div className={styles.fieldRow}>
-                        <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Transaksjonstype</label>
-                          <select
-                            className={styles.select}
-                            onChange={(event) =>
-                              updateDecision(item.id, {
-                                transactionKind: event.target.value as BankTransactionKind
-                              })
-                            }
-                            value={decision.transactionKind}
-                          >
-                            {TRANSACTION_KIND_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Kategori</label>
-                          <select
-                            className={styles.select}
-                            onChange={(event) => updateDecision(item.id, { cat: event.target.value })}
-                            value={decision.cat}
-                          >
-                            {CATEGORIES.map((category) => (
-                              <option key={category} value={category}>
-                                {category}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Tilhører</label>
-                          <select
-                            className={styles.select}
-                            onChange={(event) =>
-                              updateDecision(item.id, { workspaceId: event.target.value || null })
-                            }
-                            value={workspaceId}
-                          >
-                            {workspaces.map((workspace) => (
-                              <option key={workspace.id} value={workspace.id}>
-                                {workspace.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
-                    ) : null}
 
                     {item.linkSuggestions.length > 0 ? (
                       <div className={styles.bankImportHint}>
@@ -569,6 +618,16 @@ export function BankImportModal({
                         Prosjekt/selskap: {reviewContext.defaultWorkspaceName ?? "Ukjent prosjekt"}
                       </div>
                     ) : null}
+                    <div className={styles.modalActions}>
+                      <button
+                        className={styles.modalCancel}
+                        disabled={busy || applying}
+                        onClick={() => handleCreateKnownRule(item)}
+                        type="button"
+                      >
+                        Gjør kjent regel
+                      </button>
+                    </div>
                   </article>
                 );
               })}

@@ -21,6 +21,7 @@ import type {
   BankTransactionKind,
   BankTransactionLinkStatus,
   BankTransactionLinkSuggestion,
+  KnownBankRule,
   EntryType
 } from "@/lib/types";
 
@@ -162,6 +163,55 @@ export async function fetchBankLearningExamples(accountId: string) {
   }));
 }
 
+type KnownRuleRow = {
+  id: string;
+  account_id: string;
+  created_by: string;
+  label: string;
+  normalized_includes: string[] | null;
+  payment_type: string | null;
+  entry_type: EntryType | null;
+  transaction_kind: BankTransactionKind;
+  cat: string;
+  workspace_id: string | null;
+  confidence_score: number;
+  reporting_treatment: BankReportingTreatment;
+  auto_apply: boolean;
+  created_at: string;
+};
+
+export async function fetchKnownBankRules(accountId: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("bank_known_rules")
+    .select(
+      "id, account_id, created_by, label, normalized_includes, payment_type, entry_type, transaction_kind, cat, workspace_id, confidence_score, reporting_treatment, auto_apply, created_at"
+    )
+    .eq("account_id", accountId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return ((data ?? []) as KnownRuleRow[]).map<KnownBankRule>((rule) => ({
+    id: rule.id,
+    accountId: rule.account_id,
+    createdBy: rule.created_by,
+    label: rule.label,
+    normalizedIncludes: rule.normalized_includes ?? [],
+    paymentType: rule.payment_type,
+    entryType: rule.entry_type,
+    transactionKind: rule.transaction_kind,
+    cat: rule.cat,
+    workspaceId: rule.workspace_id,
+    confidenceScore: rule.confidence_score,
+    reportingTreatment: rule.reporting_treatment,
+    autoApply: rule.auto_apply,
+    createdAt: rule.created_at
+  }));
+}
+
 function toLinkSuggestions(
   row: BankTransactionRow,
   links: TransactionLinkRow[],
@@ -206,6 +256,7 @@ export function buildStoredReviewItems(
   rows: BankTransactionRow[],
   entries: ExistingEntryMatch[],
   learningExamples: BankLearningExample[],
+  knownRules: KnownBankRule[],
   links: TransactionLinkRow[],
   importContext?: BankImportContext
 ) {
@@ -245,11 +296,13 @@ export function buildStoredReviewItems(
 
     const suggestion = selectBankSuggestion(
       {
+        rawLabel: row.raw_label,
         normalizedLabel: row.normalized_label,
         paymentType: row.payment_type,
         entryType: row.entry_type
       },
       learningExamples,
+      knownRules,
       suggestedMatch,
       importContext
     );
@@ -286,6 +339,7 @@ export function buildReviewItemsFromParsed(
   parsedRows: ParsedNordeaTransaction[],
   entries: ExistingEntryMatch[],
   learningExamples: BankLearningExample[],
+  knownRules: KnownBankRule[],
   importContext?: BankImportContext
 ) {
   return parsedRows.map<BankImportReviewItem>((row) => {
@@ -303,7 +357,7 @@ export function buildReviewItemsFromParsed(
         : suggestedMatch && !workspaceConflict
           ? "link_existing"
           : row.suggestedAction;
-    const suggestion = selectBankSuggestion(row, learningExamples, suggestedMatch, importContext);
+    const suggestion = selectBankSuggestion(row, learningExamples, knownRules, suggestedMatch, importContext);
 
     return {
       id: `${batchId}:${row.lineNumber}`,
@@ -461,9 +515,10 @@ export async function getBatchReview(batchId: string, accountId: string) {
     throw new Error(linkError.message);
   }
 
-  const [entries, learningExamples] = await Promise.all([
+  const [entries, learningExamples, knownRules] = await Promise.all([
     fetchExistingEntryMatches(accountId),
-    fetchBankLearningExamples(accountId)
+    fetchBankLearningExamples(accountId),
+    fetchKnownBankRules(accountId)
   ]);
 
   const rows = (data ?? []) as BankTransactionRow[];
@@ -471,6 +526,7 @@ export async function getBatchReview(batchId: string, accountId: string) {
     rows.filter((row) => row.status === "pending"),
     entries,
     learningExamples,
+    knownRules,
     (linkRows ?? []) as TransactionLinkRow[],
     importContext
   );
