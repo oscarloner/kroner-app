@@ -99,7 +99,7 @@ export function Topbar({
               className={cx(styles.dropdownItem, currentWorkspaceId === "all" && styles.dropdownItemActive)}
               href={buildAppHref(currentPath, { accountSlug, monthKey }) as never}
               onClick={() => setWorkspaceOpen(false)}
-              prefetch
+              prefetch={false}
             >
               <span className={styles.workspaceDot} style={{ backgroundColor: "#888" }} />
               Alle kontoer
@@ -119,7 +119,7 @@ export function Topbar({
                   }) as never
                 }
                 onClick={() => setWorkspaceOpen(false)}
-                prefetch
+                prefetch={false}
               >
                 <span className={styles.workspaceDot} style={{ backgroundColor: workspace.color }} />
                 {workspace.name}
@@ -163,7 +163,7 @@ export function Topbar({
                   workspaceId: currentWorkspaceId
                 }) as never
               }
-              prefetch
+              prefetch={false}
             >
               ‹
             </Link>
@@ -177,7 +177,7 @@ export function Topbar({
                   workspaceId: currentWorkspaceId
                 }) as never
               }
-              prefetch
+              prefetch={false}
             >
               ›
             </Link>
@@ -220,7 +220,7 @@ export function Topbar({
                     className={cx(styles.sheetChip, account.id === currentAccountId && styles.sheetChipActive)}
                     href={buildAppHref(currentPath, { accountSlug: account.slug, monthKey }) as never}
                     onClick={() => setSheetOpen(false)}
-                    prefetch
+                    prefetch={false}
                   >
                     {account.name}
                   </Link>
@@ -235,7 +235,7 @@ export function Topbar({
                   className={cx(styles.sheetChip, currentWorkspaceId === "all" && styles.sheetChipActive)}
                   href={buildAppHref(currentPath, { accountSlug, monthKey }) as never}
                   onClick={() => setSheetOpen(false)}
-                  prefetch
+                  prefetch={false}
                 >
                   Alle kontoer
                 </Link>
@@ -254,7 +254,7 @@ export function Topbar({
                       }) as never
                     }
                     onClick={() => setSheetOpen(false)}
-                    prefetch
+                    prefetch={false}
                   >
                     {workspace.name}
                   </Link>
@@ -277,7 +277,7 @@ export function Topbar({
                       }) as never
                     }
                     onClick={() => setSheetOpen(false)}
-                    prefetch
+                    prefetch={false}
                   >
                     {option.label}
                   </Link>

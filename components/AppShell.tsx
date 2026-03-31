@@ -54,7 +54,7 @@ export function AppShell({
                     workspaceId: currentWorkspaceId
                   }) as never
                 }
-                prefetch
+                prefetch={false}
               >
                 <span className={styles.mobileBottomIcon}>{item.icon}</span>
                 <span>{item.label}</span>

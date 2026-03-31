@@ -56,7 +56,7 @@ export function Sidebar({
                     workspaceId: currentWorkspaceId
                   }) as never
                 }
-                prefetch
+                prefetch={false}
               >
                 <span className={styles.navIcon}>{item.icon}</span>
                 {item.label}
@@ -77,7 +77,7 @@ export function Sidebar({
                 workspaceId: currentWorkspaceId
               }) as never
             }
-            prefetch
+            prefetch={false}
           >
             ‹
           </Link>
@@ -91,7 +91,7 @@ export function Sidebar({
                 workspaceId: currentWorkspaceId
               }) as never
             }
-            prefetch
+            prefetch={false}
           >
             ›
           </Link>
