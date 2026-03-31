@@ -61,7 +61,6 @@ export function OverviewClient({
 
   const filteredRecurring = recurringItems.filter((item) => matches(item));
   const fixedItems = filteredRecurring.filter((item) => item.type === "fixed");
-  const subscriptionItems = filteredRecurring.filter((item) => item.type === "sub");
   const income = filteredMonthEntries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
@@ -69,8 +68,7 @@ export function OverviewClient({
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const fixed = fixedItems.reduce((sum, item) => sum + item.amount, 0);
-  const subscriptions = subscriptionItems.reduce((sum, item) => sum + item.amount, 0);
-  const net = fixed + income - expense - subscriptions;
+  const net = income - expense - fixed;
 
   return (
     <>
@@ -104,12 +102,12 @@ export function OverviewClient({
         <div className={styles.page}>
           <section className={styles.cards}>
             <article className={styles.card}>
-              <div className={styles.cardLabel}>Faste inntekter</div>
-              <div className={cx(styles.cardValue, styles.fixedValue)}>{formatCurrency(fixed)}</div>
-              <div className={styles.cardSub}>{fixedItems.length} kilder</div>
+              <div className={styles.cardLabel}>Faste utgifter</div>
+              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(fixed)}</div>
+              <div className={styles.cardSub}>{fixedItems.length} poster</div>
             </article>
             <article className={styles.card}>
-              <div className={styles.cardLabel}>Engangs</div>
+              <div className={styles.cardLabel}>Inntekter</div>
               <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(income)}</div>
               <div className={styles.cardSub}>
                 {filteredMonthEntries.filter((entry) => entry.type === "income").length} poster
@@ -121,11 +119,6 @@ export function OverviewClient({
               <div className={styles.cardSub}>
                 {filteredMonthEntries.filter((entry) => entry.type === "expense").length} poster
               </div>
-            </article>
-            <article className={styles.card}>
-              <div className={styles.cardLabel}>Abonnementer</div>
-              <div className={cx(styles.cardValue, styles.subValue)}>{formatCurrency(subscriptions)}</div>
-              <div className={styles.cardSub}>{subscriptionItems.length} aktive</div>
             </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Netto</div>

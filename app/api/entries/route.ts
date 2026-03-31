@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       created_by: account.user.id,
       name: name.trim(),
       amount,
-      cat: cat.trim(),
+      cat: type === "sub" ? "Abonnementer" : cat.trim(),
       workspace_id: workspaceId || null,
       legacy_id: null
     };
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     if (type === "sub" || type === "fixed") {
       const { error } = await supabase.from("recurring_items").insert({
         ...common,
-        type,
+        type: "fixed",
         link: link?.trim() || null
       });
 

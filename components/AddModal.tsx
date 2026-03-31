@@ -10,10 +10,16 @@ type Suggestion = {
   ws?: string;
 };
 
-type AddType = "income" | "expense" | "sub" | "fixed";
+type AddType = "income" | "expense" | "fixed";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function normalizeSuggestionType(type?: Suggestion["type"]): AddType | undefined {
+  if (!type) return undefined;
+  if (type === "sub") return "fixed";
+  return type;
 }
 
 export function AddModal({
@@ -58,6 +64,7 @@ export function AddModal({
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
   const aiTimeout = useRef<number | null>(null);
   const prevOpen = useRef(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   function resolveWorkspace(raw?: string) {
     if (!raw) return undefined;
@@ -67,12 +74,13 @@ export function AddModal({
   // Reset all fields (and apply prefill if any) each time the modal opens
   useEffect(() => {
     if (open && !prevOpen.current) {
+      const suggestedType = normalizeSuggestionType(prefill?.type);
       const nextType =
-        prefill?.type && availableTypes.includes(prefill.type) ? prefill.type : resolvedDefaultType;
+        suggestedType && availableTypes.includes(suggestedType) ? suggestedType : resolvedDefaultType;
       setType(nextType);
       setName(prefill?.name ?? "");
       setAmount(prefill?.amount != null ? String(prefill.amount) : "");
-      setCat(prefill?.cat ?? CATEGORIES[4]);
+      setCat(prefill?.type === "sub" ? "Abonnementer" : (prefill?.cat ?? CATEGORIES[4]));
       setWorkspaceId(resolveWorkspace(prefill?.ws) ?? defaultWorkspaceId);
       setDate(prefill?.date ?? new Date().toISOString().slice(0, 10));
       setStatus("");
@@ -87,12 +95,20 @@ export function AddModal({
     if (!open) return;
 
     function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !busy) {
+        event.preventDefault();
+        formRef.current?.requestSubmit();
+      }
     }
 
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
+  }, [busy, open, onClose]);
 
   useEffect(() => {
     if (name.trim().length < 3 || !open) {
@@ -130,8 +146,13 @@ export function AddModal({
   }, [accountId, name, open]);
 
   function applySuggestion(value: Suggestion) {
-    if (value.type) setType(value.type);
-    if (value.cat) setCat(value.cat);
+    const normalizedType = normalizeSuggestionType(value.type);
+    if (normalizedType) setType(normalizedType);
+    if (value.type === "sub") {
+      setCat("Abonnementer");
+    } else if (value.cat) {
+      setCat(value.cat);
+    }
     const resolvedId = resolveWorkspace(value.ws);
     if (resolvedId) setWorkspaceId(resolvedId);
   }
@@ -168,15 +189,14 @@ export function AddModal({
 
   if (!open) return null;
 
-  const recurring = type === "sub" || type === "fixed";
+  const recurring = type === "fixed";
   const suggestionWorkspace = workspaces.find(
     (w) => w.id === resolveWorkspace(suggestion?.ws)
   );
   const typeOptions = [
     { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
     { value: "expense", label: "↓ Utgift", className: styles.typePillExpense },
-    { value: "sub", label: "↻ Abonnement", className: styles.typePillSub },
-    { value: "fixed", label: "★ Fast inntekt", className: styles.typePillFixed }
+    { value: "fixed", label: "★ Fast utgift", className: styles.typePillFixed }
   ].filter((item) => availableTypes.includes(item.value as AddType));
 
   return (
@@ -193,7 +213,7 @@ export function AddModal({
       >
         <div className={styles.modalTitle}>Legg til transaksjon</div>
 
-        <form className={styles.modalForm} onSubmit={handleSubmit}>
+        <form className={styles.modalForm} onSubmit={handleSubmit} ref={formRef}>
           {typeOptions.length > 1 ? (
             <div className={styles.typeRow}>
               {typeOptions.map((item) => (

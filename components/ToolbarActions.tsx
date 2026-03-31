@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AddModal } from "@/components/AddModal";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
 import type { Entry, OcrSuggestion, RecurringItem, Workspace } from "@/lib/types";
 
-type AddType = "income" | "expense" | "sub" | "fixed";
+type AddType = "income" | "expense" | "fixed";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -48,6 +48,26 @@ export function ToolbarActions({
     setAddOpen(false);
     setPrefill(null);
   }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if ((!event.metaKey && !event.ctrlKey) || event.key.toLowerCase() !== "k") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (addOpen) {
+        return;
+      }
+
+      setPrefill(null);
+      setAddOpen(true);
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [addOpen]);
 
   return (
     <>

@@ -31,7 +31,7 @@ export default async function SubscriptionsPage({
         recurringItems={data.recurringItems}
         selectedMonthKey={data.selectedMonthKey}
         title="Abonnementer"
-        type="sub"
+        categoryFilter="Abonnementer"
         workspaces={data.workspaces}
       />
     </AppShell>

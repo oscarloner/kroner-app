@@ -21,8 +21,8 @@ export function RecurringItemsClient({
   recurringItems,
   workspaces,
   selectedMonthKey,
-  type,
-  emptyLabel
+  emptyLabel,
+  categoryFilter
 }: {
   title: string;
   currentPath: string;
@@ -37,8 +37,8 @@ export function RecurringItemsClient({
   recurringItems: RecurringItem[];
   workspaces: Workspace[];
   selectedMonthKey: string;
-  type: "fixed" | "sub";
   emptyLabel: string;
+  categoryFilter?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -52,8 +52,9 @@ export function RecurringItemsClient({
     const matchesQuery =
       !normalizedQuery ||
       [item.name, item.cat].some((part) => (part || "").toLowerCase().includes(normalizedQuery));
+    const matchesCategory = !categoryFilter || item.cat === categoryFilter;
 
-    return matchesQuery && item.type === type;
+    return matchesQuery && item.type === "fixed" && matchesCategory;
   });
 
   return (
@@ -64,11 +65,11 @@ export function RecurringItemsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            addLabel={type === "sub" ? "+ Abonnement" : "+ Fast inntekt"}
-            allowedAddTypes={[type]}
-            csvFilename={`kroner-${type}.csv`}
+            addLabel={categoryFilter ? "+ Fast utgift" : "+ Fast utgift"}
+            allowedAddTypes={["fixed"]}
+            csvFilename={`kroner-faste-utgifter${categoryFilter ? "-abonnementer" : ""}.csv`}
             currentWorkspaceId={currentWorkspaceId}
-            defaultAddType={type}
+            defaultAddType="fixed"
             entries={entries}
             recurringItems={recurringItems}
             workspaces={workspaces}

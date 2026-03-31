@@ -44,6 +44,8 @@ export function Topbar({
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const desktopSearchRef = useRef<HTMLInputElement | null>(null);
+  const mobileSearchRef = useRef<HTMLInputElement | null>(null);
   const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId);
   const workspaceLabel =
     currentWorkspaceId === "all"
@@ -79,6 +81,26 @@ export function Topbar({
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [sheetOpen]);
+
+  useEffect(() => {
+    function handleSearchShortcut(event: KeyboardEvent) {
+      if ((!event.metaKey && !event.ctrlKey) || event.key.toLowerCase() !== "p") {
+        return;
+      }
+
+      event.preventDefault();
+
+      const refs = [desktopSearchRef.current, mobileSearchRef.current];
+      const visibleInput =
+        refs.find((input) => input && input.offsetParent !== null) ?? desktopSearchRef.current ?? mobileSearchRef.current;
+
+      visibleInput?.focus();
+      visibleInput?.select();
+    }
+
+    window.addEventListener("keydown", handleSearchShortcut);
+    return () => window.removeEventListener("keydown", handleSearchShortcut);
+  }, []);
 
   return (
     <>
@@ -134,6 +156,7 @@ export function Topbar({
             className={styles.searchInput}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Søk..."
+            ref={desktopSearchRef}
             value={searchValue}
           />
         </div>
@@ -189,6 +212,7 @@ export function Topbar({
               className={styles.searchInput}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="Søk..."
+              ref={mobileSearchRef}
               value={searchValue}
             />
           </div>

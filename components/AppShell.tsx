@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { href: "/", label: "Oversikt", icon: "◈" },
   { href: "/transaksjoner", label: "Transaksjoner", icon: "↕" },
   { href: "/faste", label: "Faste", icon: "★" },
-  { href: "/abonnementer", label: "Abonnement", icon: "↻" },
   { href: "/graf", label: "Graf", icon: "↗" }
 ] as const;
 
