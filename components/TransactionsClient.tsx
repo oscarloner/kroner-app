@@ -98,8 +98,10 @@ export function TransactionsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
+            allowedAddTypes={["income", "expense", "fixed"]}
             csvFilename={`kroner-transaksjoner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
+            defaultAddType="expense"
             entries={monthEntries}
             recurringItems={recurringItems}
             workspaces={workspaces}

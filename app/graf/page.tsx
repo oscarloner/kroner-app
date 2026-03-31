@@ -8,7 +8,9 @@ export default async function GraphPage({
   searchParams?: Promise<{ account?: string; workspace?: string; month?: string }>;
 }) {
   const params = await searchParams;
-  const data = await getDashboardData(params?.account, params?.workspace, params?.month);
+  const data = await getDashboardData(params?.account, params?.workspace, params?.month, {
+    includeHistoricalEntries: true
+  });
 
   return (
     <AppShell

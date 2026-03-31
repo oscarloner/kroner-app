@@ -64,8 +64,11 @@ export function RecurringItemsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
+            addLabel={type === "sub" ? "+ Abonnement" : "+ Fast inntekt"}
+            allowedAddTypes={[type]}
             csvFilename={`kroner-${type}.csv`}
             currentWorkspaceId={currentWorkspaceId}
+            defaultAddType={type}
             entries={entries}
             recurringItems={recurringItems}
             workspaces={workspaces}

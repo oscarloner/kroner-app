@@ -56,7 +56,6 @@ export function Sidebar({
                     workspaceId: currentWorkspaceId
                   }) as never
                 }
-                prefetch={false}
               >
                 <span className={styles.navIcon}>{item.icon}</span>
                 {item.label}

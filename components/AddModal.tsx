@@ -10,6 +10,8 @@ type Suggestion = {
   ws?: string;
 };
 
+type AddType = "income" | "expense" | "sub" | "fixed";
+
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
@@ -20,7 +22,9 @@ export function AddModal({
   currentWorkspaceId,
   open,
   onClose,
-  prefill
+  prefill,
+  defaultType,
+  allowedTypes
 }: {
   accountId: string;
   workspaces: Workspace[];
@@ -28,17 +32,26 @@ export function AddModal({
   open: boolean;
   onClose: () => void;
   prefill?: OcrSuggestion | null;
+  defaultType?: AddType;
+  allowedTypes?: AddType[];
 }) {
   const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
+  const availableTypes = allowedTypes && allowedTypes.length > 0 ? allowedTypes : ([
+    "income",
+    "expense",
+    "fixed"
+  ] as AddType[]);
+  const resolvedDefaultType =
+    (defaultType && availableTypes.includes(defaultType) ? defaultType : undefined) ??
+    availableTypes[0] ??
+    "expense";
 
-  const [type, setType] = useState<"income" | "expense" | "sub" | "fixed">("expense");
+  const [type, setType] = useState<AddType>(resolvedDefaultType);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState<string>(CATEGORIES[4]);
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [link, setLink] = useState("");
-  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -54,21 +67,21 @@ export function AddModal({
   // Reset all fields (and apply prefill if any) each time the modal opens
   useEffect(() => {
     if (open && !prevOpen.current) {
-      setType(prefill?.type ?? "expense");
+      const nextType =
+        prefill?.type && availableTypes.includes(prefill.type) ? prefill.type : resolvedDefaultType;
+      setType(nextType);
       setName(prefill?.name ?? "");
       setAmount(prefill?.amount != null ? String(prefill.amount) : "");
       setCat(prefill?.cat ?? CATEGORIES[4]);
       setWorkspaceId(resolveWorkspace(prefill?.ws) ?? defaultWorkspaceId);
       setDate(prefill?.date ?? new Date().toISOString().slice(0, 10));
-      setLink("");
-      setNote("");
       setStatus("");
       setSuggestion(null);
       setBusy(false);
       setAiBusy(false);
     }
     prevOpen.current = open;
-  }, [open, prefill]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open, prefill, availableTypes, resolvedDefaultType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!open) return;
@@ -139,9 +152,7 @@ export function AddModal({
           type,
           cat,
           workspaceId: workspaceId || null,
-          date,
-          link,
-          note
+          date
         })
       });
 
@@ -161,6 +172,12 @@ export function AddModal({
   const suggestionWorkspace = workspaces.find(
     (w) => w.id === resolveWorkspace(suggestion?.ws)
   );
+  const typeOptions = [
+    { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
+    { value: "expense", label: "↓ Utgift", className: styles.typePillExpense },
+    { value: "sub", label: "↻ Abonnement", className: styles.typePillSub },
+    { value: "fixed", label: "★ Fast inntekt", className: styles.typePillFixed }
+  ].filter((item) => availableTypes.includes(item.value as AddType));
 
   return (
     <div
@@ -177,23 +194,20 @@ export function AddModal({
         <div className={styles.modalTitle}>Legg til transaksjon</div>
 
         <form className={styles.modalForm} onSubmit={handleSubmit}>
-          <div className={styles.typeRow}>
-            {[
-              { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
-              { value: "expense", label: "↓ Utgift", className: styles.typePillExpense },
-              { value: "sub", label: "↻ Abonnement", className: styles.typePillSub },
-              { value: "fixed", label: "★ Fast inntekt", className: styles.typePillFixed }
-            ].map((item) => (
-              <button
-                key={item.value}
-                className={cx(styles.typePill, type === item.value && item.className)}
-                onClick={() => setType(item.value as typeof type)}
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
+          {typeOptions.length > 1 ? (
+            <div className={styles.typeRow}>
+              {typeOptions.map((item) => (
+                <button
+                  key={item.value}
+                  className={cx(styles.typePill, type === item.value && item.className)}
+                  onClick={() => setType(item.value as typeof type)}
+                  type="button"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
           <div className={styles.field}>
             <label className={styles.fieldLabel}>Navn</label>
@@ -251,7 +265,7 @@ export function AddModal({
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Dato</label>
                 <input
-                  className={styles.input}
+                  className={cx(styles.input, styles.dateInput)}
                   onChange={(e) => setDate(e.target.value)}
                   type="date"
                   value={date}
@@ -286,22 +300,6 @@ export function AddModal({
               </select>
             </div>
           </div>
-
-          <div className={styles.field}>
-            <label className={styles.fieldLabel}>Lenke</label>
-            <input className={styles.input} onChange={(e) => setLink(e.target.value)} value={link} />
-          </div>
-
-          {!recurring ? (
-            <div className={styles.field}>
-              <label className={styles.fieldLabel}>Notat</label>
-              <textarea
-                className={styles.textarea}
-                onChange={(e) => setNote(e.target.value)}
-                value={note}
-              />
-            </div>
-          ) : null}
 
           <div className={styles.modalActions}>
             <button className={styles.modalCancel} onClick={onClose} type="button">

@@ -725,6 +725,10 @@
   justify-content: flex-end;
 }
 
+.deleteWrap {
+  position: relative;
+}
+
 .deleteButton {
   border: none;
   border-radius: 3px;
@@ -745,6 +749,58 @@
 .deleteButton:hover {
   background: var(--expense-bg);
   color: var(--expense);
+}
+
+.deleteConfirm {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  min-width: 170px;
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.deleteConfirmText {
+  margin-bottom: 8px;
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.deleteConfirmActions {
+  display: flex;
+  gap: 6px;
+}
+
+.deleteConfirmCancel,
+.deleteConfirmApprove {
+  flex: 1;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.deleteConfirmCancel {
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text2);
+}
+
+.deleteConfirmApprove {
+  border: none;
+  background: var(--expense);
+  color: #fff;
+}
+
+.deleteConfirmError {
+  margin-top: 8px;
+  color: var(--expense);
+  font-size: 11px;
 }
 
 .subGrid {
@@ -970,6 +1026,7 @@
 
 .field {
   margin-bottom: 12px;
+  min-width: 0;
 }
 
 .fieldLabel {
@@ -986,12 +1043,14 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  min-width: 0;
 }
 
 .input,
 .select,
 .textarea {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--border2);
   border-radius: 4px;
   background: var(--s1);
@@ -1013,6 +1072,10 @@
 .textarea {
   min-height: 52px;
   resize: vertical;
+}
+
+.dateInput {
+  max-width: 100%;
 }
 
 .typeRow {
@@ -1438,6 +1501,12 @@
 
   .txActionCell .deleteButton {
     opacity: 1;
+  }
+
+  .deleteConfirm {
+    right: 0;
+    left: auto;
+    max-width: calc(100vw - 56px);
   }
 
   .amount {

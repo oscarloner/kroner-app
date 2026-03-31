@@ -7,6 +7,8 @@ import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
 import type { Entry, OcrSuggestion, RecurringItem, Workspace } from "@/lib/types";
 
+type AddType = "income" | "expense" | "sub" | "fixed";
+
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
@@ -17,7 +19,10 @@ export function ToolbarActions({
   currentWorkspaceId,
   entries,
   recurringItems,
-  csvFilename
+  csvFilename,
+  addLabel,
+  defaultAddType,
+  allowedAddTypes
 }: {
   accountId: string;
   workspaces: Workspace[];
@@ -25,6 +30,9 @@ export function ToolbarActions({
   entries: Entry[];
   recurringItems: RecurringItem[];
   csvFilename: string;
+  addLabel?: string;
+  defaultAddType?: AddType;
+  allowedAddTypes?: AddType[];
 }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -63,7 +71,7 @@ export function ToolbarActions({
           }}
           type="button"
         >
-          + Legg til
+          {addLabel ?? "+ Legg til"}
         </button>
       </div>
       <ScanModal
@@ -74,7 +82,9 @@ export function ToolbarActions({
       />
       <AddModal
         accountId={accountId}
+        allowedTypes={allowedAddTypes}
         currentWorkspaceId={currentWorkspaceId}
+        defaultType={defaultAddType}
         onClose={handleAddClose}
         open={addOpen}
         prefill={prefill}

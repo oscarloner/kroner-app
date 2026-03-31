@@ -80,8 +80,10 @@ export function OverviewClient({
         actions={
           <ToolbarActions
             accountId={accountId}
+            allowedAddTypes={["income", "expense", "fixed"]}
             csvFilename={`kroner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
+            defaultAddType="expense"
             entries={filteredMonthEntries}
             recurringItems={recurringItems}
             workspaces={workspaces}

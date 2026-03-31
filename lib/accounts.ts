@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { requireUser } from "@/lib/auth";
 import type { AccountMember, AccountRole, AppAccount } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
@@ -17,7 +18,7 @@ type AccountRow = {
   created_at: string;
 };
 
-export async function getAccountContext(preferredSlug?: string) {
+export const getAccountContext = cache(async (preferredSlug?: string) => {
   const user = await requireUser();
   const supabase = await createClient();
 
@@ -78,7 +79,7 @@ export async function getAccountContext(preferredSlug?: string) {
     currentRole: currentMembership.role,
     members: [] as AccountMember[]
   };
-}
+});
 
 export async function requireAccountAccess(accountId?: string) {
   const user = await requireUser();

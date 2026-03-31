@@ -90,44 +90,24 @@ function mapRecurring(row: RecurringRow): RecurringItem {
 export async function getDashboardData(
   accountSlug?: string,
   workspaceId?: string,
-  monthKey?: string
+  monthKey?: string,
+  options?: {
+    includeHistoricalEntries?: boolean;
+  }
 ): Promise<DashboardData> {
   const supabase = await createClient();
   const accountContext = await getAccountContext(accountSlug);
   const selectedMonthKey = parseMonthKey(monthKey)?.key ?? getCurrentMonthKey();
+  const includeHistoricalEntries = options?.includeHistoricalEntries ?? false;
 
-  const [workspacesRes, entriesRes, recurringRes] = await Promise.all([
-    supabase
-      .from("workspaces")
-      .select("id, account_id, created_by, legacy_id, name, color")
-      .eq("account_id", accountContext.currentAccount.id)
-      .order("name"),
-    supabase
-      .from("entries")
-      .select(
-        "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, date, link, note, created_at"
-      )
-      .eq("account_id", accountContext.currentAccount.id)
-      .order("date", { ascending: false }),
-    supabase
-      .from("recurring_items")
-      .select(
-        "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, link, created_at"
-      )
-      .eq("account_id", accountContext.currentAccount.id)
-      .order("name")
-  ]);
+  const workspacesRes = await supabase
+    .from("workspaces")
+    .select("id, account_id, created_by, legacy_id, name, color")
+    .eq("account_id", accountContext.currentAccount.id)
+    .order("name");
 
   if (workspacesRes.error) {
     throw new Error(workspacesRes.error.message);
-  }
-
-  if (entriesRes.error) {
-    throw new Error(entriesRes.error.message);
-  }
-
-  if (recurringRes.error) {
-    throw new Error(recurringRes.error.message);
   }
 
   const workspaces = (workspacesRes.data ?? []).map(mapWorkspace);
@@ -138,19 +118,71 @@ export async function getDashboardData(
       ? null
       : workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
   const currentWorkspaceId = currentWorkspace?.id ?? "all";
-  const filteredEntries = currentWorkspace
-    ? (entriesRes.data ?? [])
-        .map(mapEntry)
-        .filter((entry) => entry.workspaceId === currentWorkspace.id)
-    : (entriesRes.data ?? []).map(mapEntry);
-  const monthEntries = filteredEntries.filter(
-    (entry) => entry.date >= monthBounds.start && entry.date <= monthBounds.end
-  );
-  const filteredRecurringItems = currentWorkspace
-    ? (recurringRes.data ?? [])
-        .map(mapRecurring)
-        .filter((item) => item.workspaceId === currentWorkspace.id)
-    : (recurringRes.data ?? []).map(mapRecurring);
+
+  let monthEntriesQuery = supabase
+    .from("entries")
+    .select(
+      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, date, link, note, created_at"
+    )
+    .eq("account_id", accountContext.currentAccount.id)
+    .gte("date", monthBounds.start)
+    .lte("date", monthBounds.end)
+    .order("date", { ascending: false });
+
+  let recurringQuery = supabase
+    .from("recurring_items")
+    .select(
+      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, link, created_at"
+    )
+    .eq("account_id", accountContext.currentAccount.id)
+    .order("name");
+
+  if (currentWorkspace) {
+    monthEntriesQuery = monthEntriesQuery.eq("workspace_id", currentWorkspace.id);
+    recurringQuery = recurringQuery.eq("workspace_id", currentWorkspace.id);
+  }
+
+  const historicalEntriesPromise = includeHistoricalEntries
+    ? (() => {
+        let query = supabase
+          .from("entries")
+          .select(
+            "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, date, link, note, created_at"
+          )
+          .eq("account_id", accountContext.currentAccount.id)
+          .order("date", { ascending: false });
+
+        if (currentWorkspace) {
+          query = query.eq("workspace_id", currentWorkspace.id);
+        }
+
+        return query;
+      })()
+    : Promise.resolve({ data: null, error: null });
+
+  const [monthEntriesRes, recurringRes, historicalEntriesRes] = await Promise.all([
+    monthEntriesQuery,
+    recurringQuery,
+    historicalEntriesPromise
+  ]);
+
+  if (monthEntriesRes.error) {
+    throw new Error(monthEntriesRes.error.message);
+  }
+
+  if (recurringRes.error) {
+    throw new Error(recurringRes.error.message);
+  }
+
+  if (historicalEntriesRes.error) {
+    throw new Error(historicalEntriesRes.error.message);
+  }
+
+  const monthEntries = (monthEntriesRes.data ?? []).map(mapEntry);
+  const filteredEntries = includeHistoricalEntries
+    ? (historicalEntriesRes.data ?? []).map(mapEntry)
+    : monthEntries;
+  const filteredRecurringItems = (recurringRes.data ?? []).map(mapRecurring);
 
   return {
     userEmail: accountContext.user.email ?? "",
