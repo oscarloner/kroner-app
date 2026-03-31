@@ -1,0 +1,224 @@
+.shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(29, 78, 216, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(15, 123, 85, 0.16), transparent 24%),
+    linear-gradient(180deg, #f6f8fb 0%, #eef2f7 100%);
+}
+
+.frame {
+  width: min(960px, 100%);
+  display: grid;
+  grid-template-columns: 1.15fr 0.95fr;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(16px);
+}
+
+.hero {
+  position: relative;
+  padding: 48px;
+  color: #f8fafc;
+  background:
+    linear-gradient(160deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.9)),
+    linear-gradient(135deg, #1d4ed8, #0f766e);
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -40px -72px auto;
+  width: 240px;
+  height: 240px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.35), transparent 70%);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  font-size: 18px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.heroTitle {
+  margin: 72px 0 14px;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.heroText {
+  max-width: 28rem;
+  margin: 0;
+  color: rgba(248, 250, 252, 0.76);
+  font-size: 1rem;
+}
+
+.featureList {
+  display: grid;
+  gap: 12px;
+  margin: 28px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(248, 250, 252, 0.9);
+}
+
+.featureDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #60a5fa, #34d399);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.06);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 48px 40px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.eyebrow {
+  margin: 0 0 10px;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.description {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 0.98rem;
+}
+
+.form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.label {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.input {
+  width: 100%;
+  height: 52px;
+  padding: 0 16px;
+  border: 1px solid #dbe3ef;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.input:focus {
+  border-color: #3b82f6;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+.submit {
+  height: 52px;
+  border: 0;
+  border-radius: 16px;
+  color: #eff6ff;
+  font-weight: 600;
+  background: linear-gradient(135deg, #2563eb, #0f766e);
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.22);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
+}
+
+.submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.status {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  color: #0f172a;
+  background: #e2f7eb;
+  border: 1px solid #b8e7ca;
+}
+
+.statusError {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.footnote {
+  margin-top: 18px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.footnote code {
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+@media (max-width: 900px) {
+  .frame {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    padding: 36px 28px 30px;
+  }
+
+  .heroTitle {
+    margin-top: 44px;
+  }
+
+  .card {
+    padding: 32px 24px;
+  }
+}
