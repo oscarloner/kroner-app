@@ -151,13 +151,13 @@ export function RecurringItemEditModal({
 
           <div className={styles.fieldRow}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Konto</label>
+              <label className={styles.fieldLabel}>Prosjekt</label>
               <select
                 className={styles.select}
                 onChange={(event) => setWorkspaceId(event.target.value)}
                 value={workspaceId}
               >
-                <option value="">Uten konto</option>
+                <option value="">Uten prosjekt</option>
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>
                     {workspace.name}

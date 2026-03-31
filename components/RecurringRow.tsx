@@ -34,7 +34,7 @@ export function RecurringRow({
 
   return (
     <>
-      <div className={styles.txRow}>
+      <div className={cx(styles.txRow, styles.recurringRow)}>
         <div className={styles.txMainCell}>
           <div className={styles.txName}>{item.name}</div>
           <div className={styles.txMetaCompact}>
@@ -45,7 +45,7 @@ export function RecurringRow({
                 className={styles.workspaceBadgeDot}
                 style={{ backgroundColor: workspace?.color ?? "#787774" }}
               />
-              {workspace?.name ?? "Uten konto"}
+              {workspace?.name ?? "Uten prosjekt"}
             </span>
           </div>
         </div>
@@ -56,7 +56,7 @@ export function RecurringRow({
             className={styles.workspaceBadgeDot}
             style={{ backgroundColor: workspace?.color ?? "#787774" }}
           />
-          {workspace?.name ?? "Uten konto"}
+          {workspace?.name ?? "Uten prosjekt"}
         </div>
         <div className={cx(styles.amount, amountClass)}>
           {isExpense ? "−" : "+"} {formatCurrency(item.amount)}

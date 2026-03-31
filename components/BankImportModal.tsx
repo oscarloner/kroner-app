@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/components/kroner.module.css";
 import {
-  type BankTransactionKind,
-  type BankTransactionLinkStatus,
-  type BankImportContext,
   CATEGORIES,
   type BankImportAction,
+  type BankImportContext,
   type BankImportReviewItem,
   type BankImportReviewSummary,
+  type BankTransactionKind,
+  type BankTransactionLinkStatus,
   type EntryType,
   type Workspace
 } from "@/lib/types";
@@ -24,6 +24,8 @@ type DecisionState = {
   transactionKind: BankTransactionKind;
 };
 
+type ModalStep = "upload" | "review";
+
 const TRANSACTION_KIND_OPTIONS: Array<{ value: BankTransactionKind; label: string }> = [
   { value: "vipps", label: "Vipps" },
   { value: "bank_transfer", label: "Bankoverføring" },
@@ -36,12 +38,44 @@ const TRANSACTION_KIND_OPTIONS: Array<{ value: BankTransactionKind; label: strin
   { value: "other", label: "Annet" }
 ];
 
-function transactionKindLabel(value: BankTransactionKind) {
-  return TRANSACTION_KIND_OPTIONS.find((option) => option.value === value)?.label ?? value;
-}
+const ACTION_OPTIONS: Array<{
+  value: BankImportAction;
+  label: string;
+  description: string;
+  className: string;
+}> = [
+  {
+    value: "import_new",
+    label: "Importer som ny",
+    description: "Opprett en ny transaksjon med valgene under.",
+    className: styles.bankImportActionPrimary
+  },
+  {
+    value: "link_existing",
+    label: "Koble til eksisterende",
+    description: "Bruk eksisterende transaksjon som treff.",
+    className: styles.bankImportActionMatch
+  },
+  {
+    value: "mark_transfer",
+    label: "Transfer/private",
+    description: "Marker raden som privat overføring eller nulling.",
+    className: styles.bankImportActionTransfer
+  },
+  {
+    value: "ignore",
+    label: "Ignorer",
+    description: "Denne raden tas ikke med i importen.",
+    className: styles.bankImportActionIgnore
+  }
+];
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function transactionKindLabel(value: BankTransactionKind) {
+  return TRANSACTION_KIND_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
 function defaultDecision(
@@ -62,6 +96,39 @@ function defaultDecision(
   };
 }
 
+function getReviewPriority(item: BankImportReviewItem) {
+  let priority = item.confidenceScore;
+
+  if (item.reviewGroup === "probable_match") priority += 12;
+  if (item.reviewGroup === "transfer") priority += 20;
+  if (item.reviewGroup === "ignored_candidate") priority += 28;
+  if (item.suggestedMatch) priority += 6;
+  if (item.linkSuggestions.length > 0) priority += 4;
+
+  return priority;
+}
+
+function actionLabel(action: BankImportAction) {
+  switch (action) {
+    case "import_new":
+      return "Importer som ny";
+    case "link_existing":
+      return "Koble til treff";
+    case "mark_transfer":
+      return "Transfer/private";
+    case "ignore":
+      return "Ignorer";
+  }
+}
+
+function reviewStatusText(item: BankImportReviewItem, decision: DecisionState) {
+  if (decision.action === "link_existing" && item.suggestedMatch) {
+    return `Match funnet: ${item.suggestedMatch.entryName}`;
+  }
+
+  return actionLabel(decision.action);
+}
+
 export function BankImportModal({
   accountId,
   currentWorkspaceId,
@@ -78,6 +145,7 @@ export function BankImportModal({
   const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
   const defaultWorkspaceName =
     workspaces.find((workspace) => workspace.id === defaultWorkspaceId)?.name ?? "Ukjent prosjekt";
+  const [step, setStep] = useState<ModalStep>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [items, setItems] = useState<BankImportReviewItem[]>([]);
@@ -89,16 +157,12 @@ export function BankImportModal({
     defaultWorkspaceId,
     defaultWorkspaceName
   });
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState(false);
   const [status, setStatus] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      setStatus("");
-    }
-  }, [open]);
 
   useEffect(() => {
     setSelectedWorkspaceId(defaultWorkspaceId);
@@ -108,10 +172,69 @@ export function BankImportModal({
     });
   }, [defaultWorkspaceId, defaultWorkspaceName]);
 
+  const sortedItems = useMemo(
+    () =>
+      [...items].sort((left, right) => {
+        const priorityDiff = getReviewPriority(left) - getReviewPriority(right);
+        if (priorityDiff !== 0) {
+          return priorityDiff;
+        }
+
+        return new Date(right.date).getTime() - new Date(left.date).getTime();
+      }),
+    [items]
+  );
+
+  useEffect(() => {
+    if (sortedItems.length === 0) {
+      setSelectedItemId(null);
+      return;
+    }
+
+    setSelectedItemId((current) =>
+      current && sortedItems.some((item) => item.id === current) ? current : sortedItems[0].id
+    );
+  }, [sortedItems]);
+
+  useEffect(() => {
+    setAdvancedOpen(false);
+  }, [selectedItemId]);
+
+  const selectedItem = selectedItemId
+    ? sortedItems.find((item) => item.id === selectedItemId) ?? null
+    : null;
+  const selectedDecision = selectedItem
+    ? decisions[selectedItem.id] ??
+      defaultDecision(selectedItem, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId)
+    : null;
+  const selectedWorkspaceValue = selectedDecision?.workspaceId ?? "";
   const decisionCount = useMemo(
     () => Object.values(decisions).filter((decision) => decision.action !== "ignore").length,
     [decisions]
   );
+
+  function resetState() {
+    setStep("upload");
+    setFile(null);
+    setBatchId(null);
+    setItems([]);
+    setSummary(null);
+    setDecisions({});
+    setLinkDecisions({});
+    setSelectedWorkspaceId(defaultWorkspaceId);
+    setReviewContext({
+      defaultWorkspaceId,
+      defaultWorkspaceName
+    });
+    setSelectedItemId(null);
+    setAdvancedOpen(false);
+    setStatus("");
+    setBusy(false);
+    setApplying(false);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  }
 
   async function loadReview(nextBatchId: string) {
     const response = await fetch(
@@ -153,6 +276,7 @@ export function BankImportModal({
           .map((link) => [link.id, link.status === "suggested" ? "confirmed" : link.status])
       )
     );
+    setStep("review");
   }
 
   async function handleParse() {
@@ -189,6 +313,7 @@ export function BankImportModal({
       if (!response.ok || !json.batchId) {
         throw new Error(json.message || "Kunne ikke parse CSV.");
       }
+
       setReviewContext(
         json.importContext ?? {
           defaultWorkspaceId: selectedWorkspaceId,
@@ -196,15 +321,18 @@ export function BankImportModal({
             workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent prosjekt"
         }
       );
+      setBatchId(json.batchId);
+      setStep("review");
+
       if (json.summary) {
         setSummary(json.summary);
       }
-      setBatchId(json.batchId);
 
       if (json.summary?.batchCompleted) {
         setItems([]);
         setDecisions({});
         setLinkDecisions({});
+        setSelectedItemId(null);
         setStatus(
           `Import fullført. ${json.summary.autoAppliedCount} auto-importert, ${json.summary.ignoredCount} ignorert.`
         );
@@ -301,9 +429,9 @@ export function BankImportModal({
                 .flatMap((item) => item.linkSuggestions)
                 .map((link) => [link.id, linkDecisions[link.id] ?? link.status])
             ).entries()
-          ).map(([linkId, status]) => ({
+          ).map(([linkId, linkStatus]) => ({
             linkId,
-            status: status === "confirmed" ? "confirmed" : "rejected"
+            status: linkStatus === "confirmed" ? "confirmed" : "rejected"
           }))
         })
       });
@@ -317,26 +445,6 @@ export function BankImportModal({
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Kunne ikke fullføre importen.");
       setApplying(false);
-    }
-  }
-
-  function resetState() {
-    setFile(null);
-    setBatchId(null);
-    setItems([]);
-    setSummary(null);
-    setDecisions({});
-    setLinkDecisions({});
-    setSelectedWorkspaceId(defaultWorkspaceId);
-    setReviewContext({
-      defaultWorkspaceId,
-      defaultWorkspaceName
-    });
-    setStatus("");
-    setBusy(false);
-    setApplying(false);
-    if (inputRef.current) {
-      inputRef.current.value = "";
     }
   }
 
@@ -358,48 +466,22 @@ export function BankImportModal({
           styles.modal,
           styles.dialogModal,
           styles.fullScreenDialogModal,
-          styles.bankImportModal
+          styles.bankImportModal,
+          step === "upload" ? styles.bankImportModalUpload : styles.bankImportModalReview
         )}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className={styles.modalTitle}>Nordea CSV-import</div>
-
-        <div className={styles.field}>
-          <label className={styles.fieldLabel}>Denne CSV-en hører til prosjekt/selskap</label>
-          <select
-            className={styles.select}
-            disabled={busy || applying}
-            onChange={(event) => setSelectedWorkspaceId(event.target.value)}
-            value={selectedWorkspaceId}
-          >
-            <option value="" disabled>
-              Velg prosjekt/selskap
-            </option>
-            {workspaces.map((workspace) => (
-              <option key={workspace.id} value={workspace.id}>
-                {workspace.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className={styles.field}>
-          <label className={styles.fieldLabel}>CSV-fil</label>
-          <input
-            className={styles.input}
-            onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            ref={inputRef}
-            type="file"
-            accept=".csv,text/csv"
-          />
-        </div>
-
-        <div className={styles.bankImportSummaryRow}>
-          <button className={styles.modalPrimary} disabled={busy || applying} onClick={handleParse} type="button">
-            {busy ? "Parser..." : "Importer og bygg review"}
-          </button>
+        <div className={styles.bankImportHeader}>
+          <div>
+            <div className={styles.modalTitle}>Nordea CSV-import</div>
+            {step === "upload" ? (
+              <div className={styles.bankImportLead}>
+                Last opp fil først, og gå deretter gjennom det som trenger vurdering.
+              </div>
+            ) : null}
+          </div>
           <button
             className={styles.modalCancel}
             disabled={busy || applying}
@@ -413,240 +495,384 @@ export function BankImportModal({
           </button>
         </div>
 
-        {summary ? (
-          <div className={styles.bankImportStats}>
-            <div className={styles.aiChip}>
-              Betalt fra {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
-            </div>
-            <div className={styles.aiChip}>Totalt {summary.total}</div>
-            <div className={styles.aiChip}>Auto-importert {summary.autoAppliedCount}</div>
-            <div className={styles.aiChip}>Trenger review {summary.reviewCount}</div>
-            <div className={styles.aiChip}>Match {summary.probableMatchCount}</div>
-            <div className={styles.aiChip}>Ignorert {summary.ignoredCount}</div>
+        <div className={styles.bankImportSteps}>
+          <div className={cx(styles.bankImportStep, step === "upload" && styles.bankImportStepActive)}>
+            <span className={styles.bankImportStepNumber}>1</span>
+            <span>Last opp fil</span>
           </div>
-        ) : null}
+          <div className={cx(styles.bankImportStep, step === "review" && styles.bankImportStepActive)}>
+            <span className={styles.bankImportStepNumber}>2</span>
+            <span>Review og bruk valg</span>
+          </div>
+        </div>
 
-        {items.length > 0 ? (
-          <>
-            <div className={styles.sectionDivider}>Review det som trenger vurdering</div>
-            <div className={styles.bankImportList}>
-              {items.map((item) => {
-                const decision =
-                  decisions[item.id] ??
-                  defaultDecision(item, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId);
-                const workspaceId = decision.workspaceId ?? "";
-                return (
-                  <article className={styles.bankImportCard} key={item.id}>
-                    <div className={styles.bankImportCardTop}>
-                      <div>
-                        <div className={styles.txName}>{item.rawLabel}</div>
-                        <div className={styles.txNote}>{item.normalizedLabel}</div>
-                      </div>
-                      <div className={styles.bankImportAmount}>{formatSignedCurrency(item.amount * (item.entryType === "expense" ? -1 : 1))}</div>
-                    </div>
+        {step === "upload" ? (
+          <div className={styles.bankImportUploadStage}>
+            <div className={styles.bankImportIntroCard}>
+              <div className={styles.bankImportIntroTitle}>Steg 1: Velg prosjekt og CSV-fil</div>
+              <div className={styles.bankImportIntroText}>
+                Vi parser filen og setter opp forslag. I neste steg går du bare gjennom radene som trenger vurdering.
+              </div>
+            </div>
 
-                    <div className={styles.bankImportMetaRow}>
-                      <span className={styles.txMetaItem}>{item.date || "Uten dato"}</span>
-                      <span className={styles.txMetaItem}>{item.paymentType}</span>
-                      <span className={styles.txMetaItem}>{item.reviewGroup}</span>
-                      <span className={styles.txMetaItem}>{transactionKindLabel(item.transactionKind)}</span>
-                      <span className={styles.txMetaItem}>{item.confidenceScore}% sikker</span>
-                      {item.suggestedMatch ? (
-                        <span className={styles.txMetaItem}>Match {item.suggestedMatch.score}</span>
-                      ) : null}
-                    </div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>Denne CSV-en hører til prosjekt/selskap</label>
+              <select
+                className={styles.select}
+                disabled={busy || applying}
+                onChange={(event) => setSelectedWorkspaceId(event.target.value)}
+                value={selectedWorkspaceId}
+              >
+                <option value="" disabled>
+                  Velg prosjekt/selskap
+                </option>
+                {workspaces.map((workspace) => (
+                  <option key={workspace.id} value={workspace.id}>
+                    {workspace.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-                    <div className={styles.bankImportHint}>{item.reviewReason}</div>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel}>CSV-fil</label>
+              <input
+                className={styles.input}
+                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                ref={inputRef}
+                type="file"
+                accept=".csv,text/csv"
+              />
+              {file ? <div className={styles.bankImportSelectedFile}>Valgt fil: {file.name}</div> : null}
+            </div>
 
-                    <div className={styles.bankImportLowerArea}>
-                      <div className={styles.bankImportActionsPanel}>
-                        <div className={styles.bankImportPanelLabel}>Valg</div>
-                        <div className={styles.bankImportDecisionRow}>
-                          <div className={cx(styles.field, styles.bankImportPrimaryField)}>
-                            <label className={styles.fieldLabel}>Handling</label>
-                            <select
-                              className={styles.select}
-                              onChange={(event) =>
-                                updateDecision(item.id, {
-                                  action: event.target.value as BankImportAction
-                                })
-                              }
-                              value={decision.action}
-                            >
-                              <option value="import_new">Importer som ny</option>
-                              {item.suggestedMatch ? <option value="link_existing">Koble til eksisterende</option> : null}
-                              <option value="mark_transfer">Transfer/private</option>
-                              <option value="ignore">Ignorer</option>
-                            </select>
-                          </div>
+            <div className={styles.bankImportUploadActions}>
+              <button className={styles.modalPrimary} disabled={busy || applying} onClick={handleParse} type="button">
+                {busy ? "Parser..." : "Importer og gå til review"}
+              </button>
+              <button className={styles.modalCancel} disabled={busy || applying} onClick={resetState} type="button">
+                Nullstill
+              </button>
+            </div>
 
-                          {decision.action === "link_existing" && item.suggestedMatch ? (
-                            <div className={cx(styles.field, styles.bankImportSecondaryField)}>
-                              <label className={styles.fieldLabel}>Treff</label>
-                              <select
-                                className={styles.select}
-                                onChange={(event) =>
-                                  updateDecision(item.id, { matchEntryId: event.target.value || null })
-                                }
-                                value={decision.matchEntryId ?? item.suggestedMatch.entryId}
-                              >
-                                <option value={item.suggestedMatch.entryId}>
-                                  {item.suggestedMatch.entryName} ({item.suggestedMatch.score})
-                                </option>
-                              </select>
-                            </div>
-                          ) : (
-                            <div className={cx(styles.field, styles.bankImportSecondaryField)}>
-                              <label className={styles.fieldLabel}>Type</label>
-                              <select
-                                className={styles.select}
-                                onChange={(event) =>
-                                  updateDecision(item.id, { type: event.target.value as EntryType })
-                                }
-                                value={decision.type}
-                              >
-                                <option value="expense">Utgift</option>
-                                <option value="income">Inntekt</option>
-                              </select>
-                            </div>
+            {busy ? (
+              <div className={styles.bankImportParsingState} role="status" aria-live="polite">
+                <div className={styles.bankImportParsingSpinner} aria-hidden="true" />
+                <div>
+                  <div className={styles.bankImportParsingTitle}>Parser CSV og bygger review</div>
+                  <div className={styles.bankImportParsingText}>
+                    Leser filen, foreslår handlinger og gjør klar steg 2.
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className={styles.bankImportReviewStage}>
+            <div className={styles.bankImportReviewSummary}>
+              <div className={styles.bankImportSummaryCard}>
+                <div className={styles.bankImportSummaryLabel}>Prosjekt</div>
+                <div className={styles.bankImportSummaryValue}>
+                  {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
+                </div>
+              </div>
+              <div className={styles.bankImportSummaryCard}>
+                <div className={styles.bankImportSummaryLabel}>Trenger review</div>
+                <div className={styles.bankImportSummaryValue}>{summary?.reviewCount ?? items.length}</div>
+              </div>
+              <div className={styles.bankImportSummaryCard}>
+                <div className={styles.bankImportSummaryLabel}>Auto-importert</div>
+                <div className={styles.bankImportSummaryValue}>{summary?.autoAppliedCount ?? 0}</div>
+              </div>
+            </div>
+
+            {summary?.batchCompleted ? (
+              <div className={styles.bankImportEmptyState}>
+                <div className={styles.bankImportIntroTitle}>Import fullført automatisk</div>
+                <div className={styles.bankImportIntroText}>
+                  Ingen rader trenger manuell review for denne filen.
+                </div>
+              </div>
+            ) : sortedItems.length > 0 && selectedItem && selectedDecision ? (
+              <div className={styles.bankImportWorkspace}>
+                <div className={styles.bankImportListPane}>
+                  <div className={styles.bankImportPaneTitle}>Rader som trenger vurdering</div>
+                  <div className={styles.bankImportList}>
+                    {sortedItems.map((item) => {
+                      const decision =
+                        decisions[item.id] ??
+                        defaultDecision(item, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId);
+
+                      return (
+                        <button
+                          key={item.id}
+                          className={cx(
+                            styles.bankImportListItem,
+                            selectedItemId === item.id && styles.bankImportListItemActive
                           )}
-                        </div>
-                      </div>
-
-                      {decision.action === "import_new" ? (
-                        <div className={styles.bankImportDetailsPanel}>
-                          <div className={styles.bankImportPanelLabel}>Detaljer for ny transaksjon</div>
-                          <div className={styles.bankImportDetailRow}>
-                            <div className={styles.field}>
-                              <label className={styles.fieldLabel}>Transaksjonstype</label>
-                              <select
-                                className={styles.select}
-                                onChange={(event) =>
-                                  updateDecision(item.id, {
-                                    transactionKind: event.target.value as BankTransactionKind
-                                  })
-                                }
-                                value={decision.transactionKind}
-                              >
-                                {TRANSACTION_KIND_OPTIONS.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className={styles.field}>
-                              <label className={styles.fieldLabel}>Kategori</label>
-                              <select
-                                className={styles.select}
-                                onChange={(event) => updateDecision(item.id, { cat: event.target.value })}
-                                value={decision.cat}
-                              >
-                                {CATEGORIES.map((category) => (
-                                  <option key={category} value={category}>
-                                    {category}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className={styles.field}>
-                              <label className={styles.fieldLabel}>Tilhører</label>
-                              <select
-                                className={styles.select}
-                                onChange={(event) =>
-                                  updateDecision(item.id, { workspaceId: event.target.value || null })
-                                }
-                                value={workspaceId}
-                              >
-                                {workspaces.map((workspace) => (
-                                  <option key={workspace.id} value={workspace.id}>
-                                    {workspace.name}
-                                  </option>
-                                ))}
-                              </select>
+                          onClick={() => setSelectedItemId(item.id)}
+                          type="button"
+                        >
+                          <div className={styles.bankImportListItemTop}>
+                            <div className={styles.bankImportListItemName}>{item.rawLabel}</div>
+                            <div className={styles.bankImportAmount}>
+                              {formatSignedCurrency(item.amount * (item.entryType === "expense" ? -1 : 1))}
                             </div>
                           </div>
-                        </div>
-                      ) : null}
+                          <div className={styles.bankImportListItemMeta}>
+                            <span className={styles.txMetaItem}>{item.date || "Uten dato"}</span>
+                            <span className={styles.txMetaItem}>{item.paymentType}</span>
+                            <span className={styles.txMetaItem}>{item.confidenceScore}% sikker</span>
+                          </div>
+                          <div className={styles.bankImportListItemStatus}>
+                            {reviewStatusText(item, decision)}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className={styles.bankImportDetailPane}>
+                  <div className={styles.bankImportPaneTitle}>Valg for valgt rad</div>
+
+                  <div className={styles.bankImportDetailHeader}>
+                    <div>
+                      <div className={styles.bankImportDetailName}>{selectedItem.rawLabel}</div>
+                      <div className={styles.bankImportDetailSub}>{selectedItem.normalizedLabel}</div>
                     </div>
+                    <div className={styles.bankImportAmount}>
+                      {formatSignedCurrency(
+                        selectedItem.amount * (selectedItem.entryType === "expense" ? -1 : 1)
+                      )}
+                    </div>
+                  </div>
 
-                    {item.linkSuggestions.length > 0 ? (
-                      <div className={styles.bankImportHint}>
-                        Relaterte transaksjoner / nulling:
-                        {item.linkSuggestions.map((link) => (
-                          <div key={link.id} className={styles.txMetaCompact}>
-                            <span className={styles.txMetaItem}>
-                              {link.linkKind === "vipps_offset" ? "Vipps mellomledd" : "Overføring"}
-                            </span>
-                            <span className={styles.txMetaItem}>
-                              {link.otherRawLabel} ({link.confidenceScore}%)
-                            </span>
-                            <select
-                              className={styles.select}
-                              onChange={(event) =>
-                                setLinkDecisions((current) => ({
-                                  ...current,
-                                  [link.id]: event.target.value as BankTransactionLinkStatus
-                                }))
-                              }
-                              value={linkDecisions[link.id] ?? link.status}
-                            >
-                              <option value="confirmed">Godkjenn nulling</option>
-                              <option value="rejected">Avvis nulling</option>
-                            </select>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
+                  <div className={styles.bankImportMetaRow}>
+                    <span className={styles.txMetaItem}>{selectedItem.date || "Uten dato"}</span>
+                    <span className={styles.txMetaItem}>{selectedItem.paymentType}</span>
+                    <span className={styles.txMetaItem}>{selectedItem.confidenceScore}% sikker</span>
+                    <span className={styles.txMetaItem}>{transactionKindLabel(selectedItem.transactionKind)}</span>
+                  </div>
 
-                    {item.suggestedMatch ? (
-                      <div className={styles.bankImportHint}>
-                        Eksisterende forslag: {item.suggestedMatch.entryName} ({item.suggestedMatch.cat})
-                      </div>
-                    ) : null}
-                    {item.suggestion ? (
-                      <div className={styles.bankImportHint}>
-                        Læringsforslag: {item.suggestion.cat}
-                        {item.suggestion.workspaceId
-                          ? ` · ${workspaces.find((workspace) => workspace.id === item.suggestion?.workspaceId)?.name ?? "Ukjent prosjekt"}`
-                          : ""}
-                        {` · ${transactionKindLabel(item.suggestion.transactionKind)}`}
-                      </div>
-                    ) : null}
-                    {reviewContext.defaultWorkspaceId ? (
-                      <div className={styles.bankImportHint}>
-                        Prosjekt/selskap: {reviewContext.defaultWorkspaceName ?? "Ukjent prosjekt"}
-                      </div>
-                    ) : null}
-                    <div className={styles.modalActions}>
+                  <div className={styles.bankImportReason}>{selectedItem.reviewReason}</div>
+
+                  <div className={styles.bankImportActionGrid}>
+                    {ACTION_OPTIONS.filter(
+                      (option) => option.value !== "link_existing" || Boolean(selectedItem.suggestedMatch)
+                    ).map((option) => (
                       <button
-                        className={styles.modalCancel}
-                        disabled={busy || applying}
-                        onClick={() => handleCreateKnownRule(item)}
+                        key={option.value}
+                        className={cx(
+                          styles.bankImportActionButton,
+                          option.className,
+                          selectedDecision.action === option.value && styles.bankImportActionButtonActive
+                        )}
+                        onClick={() =>
+                          updateDecision(selectedItem.id, {
+                            action: option.value,
+                            ...(option.value === "link_existing" && selectedItem.suggestedMatch
+                              ? { matchEntryId: selectedItem.suggestedMatch.entryId }
+                              : {})
+                          })
+                        }
                         type="button"
                       >
-                        Gjør kjent regel
+                        <span className={styles.bankImportActionLabel}>{option.label}</span>
+                        <span className={styles.bankImportActionDescription}>{option.description}</span>
                       </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
+                    ))}
+                  </div>
 
-            <div className={styles.modalActions}>
-              <button className={styles.modalCancel} disabled={applying} onClick={() => loadReview(batchId!)} type="button">
+                  <div className={styles.bankImportPrimaryFields}>
+                    {selectedDecision.action === "link_existing" && selectedItem.suggestedMatch ? (
+                      <div className={styles.field}>
+                        <label className={styles.fieldLabel}>Treff</label>
+                        <select
+                          className={styles.select}
+                          onChange={(event) =>
+                            updateDecision(selectedItem.id, { matchEntryId: event.target.value || null })
+                          }
+                          value={selectedDecision.matchEntryId ?? selectedItem.suggestedMatch.entryId}
+                        >
+                          <option value={selectedItem.suggestedMatch.entryId}>
+                            {selectedItem.suggestedMatch.entryName} ({selectedItem.suggestedMatch.score})
+                          </option>
+                        </select>
+                      </div>
+                    ) : null}
+
+                    {selectedDecision.action === "import_new" ? (
+                      <div className={styles.bankImportFieldGrid}>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Type</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { type: event.target.value as EntryType })
+                            }
+                            value={selectedDecision.type}
+                          >
+                            <option value="expense">Utgift</option>
+                            <option value="income">Inntekt</option>
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Transaksjonstype</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, {
+                                transactionKind: event.target.value as BankTransactionKind
+                              })
+                            }
+                            value={selectedDecision.transactionKind}
+                          >
+                            {TRANSACTION_KIND_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Kategori</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) => updateDecision(selectedItem.id, { cat: event.target.value })}
+                            value={selectedDecision.cat}
+                          >
+                            {CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Tilhører</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { workspaceId: event.target.value || null })
+                            }
+                            value={selectedWorkspaceValue}
+                          >
+                            {workspaces.map((workspace) => (
+                              <option key={workspace.id} value={workspace.id}>
+                                {workspace.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className={styles.bankImportAdvanced}>
+                    <button
+                      className={styles.bankImportAdvancedToggle}
+                      onClick={() => setAdvancedOpen((current) => !current)}
+                      type="button"
+                    >
+                      {advancedOpen ? "Skjul flere valg" : "Flere valg"}
+                    </button>
+
+                    {advancedOpen ? (
+                      <div className={styles.bankImportAdvancedPanel}>
+                        {selectedItem.suggestedMatch ? (
+                          <div className={styles.bankImportHint}>
+                            Eksisterende forslag: {selectedItem.suggestedMatch.entryName} ({selectedItem.suggestedMatch.cat})
+                          </div>
+                        ) : null}
+
+                        {selectedItem.suggestion ? (
+                          <div className={styles.bankImportHint}>
+                            Læringsforslag: {selectedItem.suggestion.cat}
+                            {selectedItem.suggestion.workspaceId
+                              ? ` · ${workspaces.find((workspace) => workspace.id === selectedItem.suggestion?.workspaceId)?.name ?? "Ukjent prosjekt"}`
+                              : ""}
+                            {` · ${transactionKindLabel(selectedItem.suggestion.transactionKind)}`}
+                          </div>
+                        ) : null}
+
+                        <div className={styles.bankImportHint}>
+                          Bokføringsregel: {selectedItem.reportingTreatment}
+                        </div>
+
+                        {selectedItem.linkSuggestions.length > 0 ? (
+                          <div className={styles.bankImportLinkSection}>
+                            <div className={styles.bankImportPanelLabel}>Relaterte transaksjoner / nulling</div>
+                            {selectedItem.linkSuggestions.map((link) => (
+                              <div key={link.id} className={styles.bankImportLinkRow}>
+                                <div>
+                                  <div className={styles.bankImportLinkTitle}>
+                                    {link.linkKind === "vipps_offset" ? "Vipps mellomledd" : "Overføring"}
+                                  </div>
+                                  <div className={styles.bankImportHint}>
+                                    {link.otherRawLabel} ({link.confidenceScore}%)
+                                  </div>
+                                </div>
+                                <select
+                                  className={styles.select}
+                                  onChange={(event) =>
+                                    setLinkDecisions((current) => ({
+                                      ...current,
+                                      [link.id]: event.target.value as BankTransactionLinkStatus
+                                    }))
+                                  }
+                                  value={linkDecisions[link.id] ?? link.status}
+                                >
+                                  <option value="confirmed">Godkjenn nulling</option>
+                                  <option value="rejected">Avvis nulling</option>
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <div className={styles.bankImportAdvancedActions}>
+                          <button
+                            className={styles.modalCancel}
+                            disabled={busy || applying}
+                            onClick={() => handleCreateKnownRule(selectedItem)}
+                            type="button"
+                          >
+                            Gjør kjent regel
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.bankImportEmptyState}>
+                <div className={styles.bankImportIntroTitle}>Ingen review-rader lastet ennå</div>
+                <div className={styles.bankImportIntroText}>
+                  Gå tilbake og parse filen på nytt hvis du forventet rader her.
+                </div>
+              </div>
+            )}
+
+            <div className={styles.bankImportFooter}>
+              <button
+                className={styles.modalCancel}
+                disabled={busy || applying}
+                onClick={() => setStep("upload")}
+                type="button"
+              >
+                Tilbake
+              </button>
+              <button className={styles.modalCancel} disabled={applying || !batchId} onClick={() => batchId && loadReview(batchId)} type="button">
                 Last inn på nytt
               </button>
-              <button className={styles.modalPrimary} disabled={applying} onClick={handleApply} type="button">
+              <button className={styles.modalPrimary} disabled={applying || !summary} onClick={handleApply} type="button">
                 {applying ? "Importer..." : `Bruk valg (${decisionCount})`}
               </button>
             </div>
-          </>
-        ) : summary && !summary.batchCompleted ? (
-          <div className={styles.bankImportHint}>
-            Ingen review-rader lastet ennå.
           </div>
-        ) : null}
+        )}
 
         {status ? <div className={styles.statusText}>{status}</div> : null}
       </div>

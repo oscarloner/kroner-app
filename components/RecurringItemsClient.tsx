@@ -91,11 +91,11 @@ export function RecurringItemsClient({
       />
       <div className={styles.content}>
         <div className={styles.page}>
-          <div className={styles.tableHeader}>
+          <div className={cx(styles.tableHeader, styles.recurringTableHeader)}>
             <div className={styles.th}>Navn</div>
             <div className={styles.th}>Type</div>
             <div className={styles.th}>Kategori</div>
-            <div className={styles.th}>Konto</div>
+            <div className={styles.th}>Prosjekt</div>
             <div className={cx(styles.th, styles.thRight)}>Beløp</div>
             <div className={styles.th} />
           </div>

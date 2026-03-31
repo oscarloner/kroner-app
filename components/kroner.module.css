@@ -673,6 +673,11 @@
   border-bottom: 1px solid var(--border);
 }
 
+.recurringTableHeader {
+  grid-template-columns: minmax(0, 1.8fr) 110px minmax(140px, 1fr) minmax(120px, 0.9fr) 110px max-content;
+  padding-left: 12px;
+}
+
 .txRow {
   display: grid;
   grid-template-columns: 28px minmax(0, 1.35fr) 82px 104px 92px 88px 86px;
@@ -691,6 +696,11 @@
   border-bottom: none;
 }
 
+.recurringRow {
+  grid-template-columns: minmax(0, 1.8fr) 110px minmax(140px, 1fr) minmax(120px, 0.9fr) 110px max-content;
+  padding-left: 12px;
+}
+
 .txMainCell {
   min-width: 0;
 }
@@ -698,6 +708,7 @@
 .txName {
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.35;
 }
 
 .txNote {
@@ -842,6 +853,10 @@
 
 .txRow:hover .editButton,
 .subCard:hover .editButton {
+  opacity: 1;
+}
+
+.recurringRow .editButton {
   opacity: 1;
 }
 
@@ -1371,56 +1386,400 @@
 }
 
 .bankImportModal {
-  max-width: 1120px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: min(84vh, 880px);
+  padding: 14px;
 }
 
-.bankImportSummaryRow {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+.bankImportModalUpload {
+  max-width: 760px;
 }
 
-.bankImportStats {
+.bankImportModalReview {
+  max-width: 980px;
+}
+
+.bankImportHeader {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 4px;
+}
+
+.bankImportLead {
+  margin-top: 4px;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.bankImportSteps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bankImportStep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--s1);
+  padding: 7px 10px;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bankImportStepActive {
+  border-color: var(--border2);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.bankImportStepNumber {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--s2);
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.bankImportStepActive .bankImportStepNumber {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.bankImportUploadStage {
+  display: grid;
+  gap: 12px;
+}
+
+.bankImportIntroCard,
+.bankImportEmptyState {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 246, 243, 0.96));
+  padding: 14px;
+}
+
+.bankImportIntroTitle {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bankImportIntroText {
+  margin-top: 6px;
+  color: var(--text2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bankImportSelectedFile {
+  margin-top: 8px;
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.bankImportUploadActions {
+  display: flex;
+  gap: 8px;
+}
+
+.bankImportParsingState {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(247, 246, 243, 0.98));
+  padding: 12px 14px;
+}
+
+.bankImportParsingSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border2);
+  border-top-color: #1a1a1a;
+  border-radius: 999px;
+  animation: bankImportSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.bankImportParsingTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bankImportParsingText {
+  margin-top: 2px;
+  color: var(--text3);
+  font-size: 11px;
+}
+
+@keyframes bankImportSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.bankImportReviewStage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bankImportReviewSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.bankImportSummaryCard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--s1);
+  padding: 7px 10px;
+}
+
+.bankImportSummaryLabel {
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bankImportSummaryValue {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.bankImportWorkspace {
+  display: grid;
+  grid-template-columns: minmax(290px, 0.9fr) minmax(0, 1.2fr);
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.bankImportListPane,
+.bankImportDetailPane {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--s1);
+  padding: 10px;
+  min-height: 0;
+}
+
+.bankImportListPane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bankImportDetailPane {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.bankImportPaneTitle {
+  margin-bottom: 8px;
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .bankImportList {
   display: grid;
-  gap: 10px;
-  max-height: 56vh;
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   padding-right: 4px;
+  padding-bottom: 20px;
 }
 
-.bankImportCard {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--s1);
-  padding: 12px;
-}
-
-.bankImportLowerArea {
-  display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(420px, 1.25fr);
-  gap: 14px;
-  align-items: start;
-}
-
-.bankImportActionsPanel,
-.bankImportDetailsPanel {
-  margin-top: 12px;
+.bankImportListItem {
+  text-align: left;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.55);
-  padding: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.1s, background-color 0.1s, transform 0.1s;
 }
 
-.bankImportDetailsPanel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 246, 243, 0.92));
+.bankImportListItem:hover {
   border-color: var(--border2);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.bankImportListItemActive {
+  border-color: #1a1a1a;
+  background: var(--bg);
+  transform: translateY(-1px);
+}
+
+.bankImportListItemTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.bankImportListItemName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bankImportAmount {
+  white-space: nowrap;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bankImportListItemMeta,
+.bankImportMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.bankImportMetaRow {
+  margin-bottom: 8px;
+}
+
+.bankImportListItemStatus {
+  margin-top: 8px;
+  color: var(--text2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bankImportDetailPane {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(247, 246, 243, 0.96));
+}
+
+.bankImportDetailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.bankImportDetailName {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.bankImportDetailSub {
+  margin-top: 4px;
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.bankImportReason {
+  margin: 8px 0 10px;
+  color: var(--text2);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.bankImportActionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.bankImportActionButton {
+  text-align: left;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+  padding: 12px;
+  cursor: pointer;
+  transition: border-color 0.1s, background-color 0.1s, transform 0.1s;
+}
+
+.bankImportActionButton:hover {
+  border-color: var(--border2);
+  background: var(--bg);
+}
+
+.bankImportActionButtonActive {
+  border-color: #1a1a1a;
+  background: var(--bg);
+  transform: translateY(-1px);
+}
+
+.bankImportActionPrimary {
+  box-shadow: inset 0 0 0 1px rgba(201, 55, 44, 0.08);
+}
+
+.bankImportActionMatch {
+  box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.08);
+}
+
+.bankImportActionTransfer {
+  box-shadow: inset 0 0 0 1px rgba(159, 107, 0, 0.08);
+}
+
+.bankImportActionIgnore {
+  box-shadow: inset 0 0 0 1px rgba(120, 119, 116, 0.08);
+}
+
+.bankImportActionLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bankImportActionDescription {
+  display: block;
+  margin-top: 4px;
+  color: var(--text3);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.bankImportPrimaryFields {
+  margin-top: 12px;
+}
+
+.bankImportFieldGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .bankImportPanelLabel {
@@ -1432,58 +1791,71 @@
   letter-spacing: 0.08em;
 }
 
-.bankImportDecisionRow {
-  display: grid;
-  grid-template-columns: minmax(320px, 1.6fr) minmax(220px, 1fr);
-  gap: 12px;
-  min-width: 0;
-  align-items: end;
-}
-
-.bankImportDetailRow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  min-width: 0;
-}
-
-.bankImportPrimaryField,
-.bankImportSecondaryField {
-  min-width: 0;
-}
-
-.bankImportActionsPanel .field,
-.bankImportDetailsPanel .field {
-  margin-bottom: 0;
-}
-
-.bankImportCardTop {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.bankImportAmount {
-  white-space: nowrap;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.bankImportMetaRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
 .bankImportHint {
   margin-top: 8px;
   color: var(--text3);
   font-size: 11px;
+}
+
+.bankImportAdvanced {
+  margin-top: 12px;
+}
+
+.bankImportAdvancedToggle {
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text2);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bankImportAdvancedToggle:hover {
+  background: var(--s2);
+}
+
+.bankImportAdvancedPanel {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.bankImportLinkSection {
+  margin-top: 12px;
+}
+
+.bankImportLinkRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 10px;
+  align-items: end;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.bankImportLinkRow:last-child {
+  border-bottom: none;
+}
+
+.bankImportLinkTitle {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bankImportAdvancedActions {
+  margin-top: 14px;
+}
+
+.bankImportFooter {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-shrink: 0;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
 }
 
 .loadingText {
@@ -1704,6 +2076,11 @@
     padding: 14px;
   }
 
+  .recurringRow {
+    grid-template-columns: 1fr auto;
+    padding-left: 14px;
+  }
+
   .txDate,
   .txCategory,
   .txSelectCell,
@@ -1717,6 +2094,10 @@
   }
 
   .txActionCell .deleteButton {
+    opacity: 1;
+  }
+
+  .txActionCell .editButton {
     opacity: 1;
   }
 
@@ -1804,11 +2185,6 @@
     grid-template-columns: 1fr;
   }
 
-  .bankImportDecisionRow,
-  .bankImportDetailRow {
-    grid-template-columns: 1fr;
-  }
-
   .modalActions {
     position: sticky;
     bottom: calc(-18px - env(safe-area-inset-bottom));
@@ -1833,23 +2209,24 @@
 }
 
 @media (max-width: 1080px) {
-  .bankImportLowerArea {
-    grid-template-columns: minmax(260px, 1fr) minmax(340px, 1.1fr);
-  }
-
-  .bankImportDecisionRow {
-    grid-template-columns: 1.35fr 1fr;
-  }
-
-  .bankImportDetailRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .bankImportWorkspace {
+    grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1.05fr);
   }
 }
 
 @media (max-width: 820px) {
-  .bankImportLowerArea,
-  .bankImportDecisionRow,
-  .bankImportDetailRow {
+  .bankImportSteps,
+  .bankImportReviewSummary,
+  .bankImportWorkspace,
+  .bankImportActionGrid,
+  .bankImportFieldGrid,
+  .bankImportLinkRow {
     grid-template-columns: 1fr;
+  }
+
+  .bankImportHeader,
+  .bankImportUploadActions,
+  .bankImportFooter {
+    flex-direction: column;
   }
 }
