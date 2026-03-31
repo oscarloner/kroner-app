@@ -163,8 +163,17 @@ export function AddModal({
   );
 
   return (
-    <div className={cx(styles.overlay, styles.overlayOpen)} onClick={onClose} role="presentation">
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div
+      className={cx(styles.overlay, styles.overlayOpen, styles.dialogOverlay)}
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className={cx(styles.modal, styles.dialogModal)}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className={styles.modalTitle}>Legg til transaksjon</div>
 
         <form onSubmit={handleSubmit}>

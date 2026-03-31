@@ -79,8 +79,17 @@ export function ScanModal({
   if (!open) return null;
 
   return (
-    <div className={`${styles.overlay} ${styles.overlayOpen}`} onClick={handleClose} role="presentation">
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+    <div
+      className={`${styles.overlay} ${styles.overlayOpen} ${styles.dialogOverlay}`}
+      onClick={handleClose}
+      role="presentation"
+    >
+      <div
+        className={`${styles.modal} ${styles.dialogModal}`}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className={styles.modalTitle}>Scan kvittering</div>
 
         <div className={styles.cameraWrap}>

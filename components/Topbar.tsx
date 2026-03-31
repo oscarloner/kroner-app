@@ -82,70 +82,72 @@ export function Topbar({
 
   return (
     <>
-      <header className={styles.topbar}>
+      <header className={cx(styles.topbar, styles.topbarDesktop)}>
+        <div className={styles.topbarTitle}>{title}</div>
+        <div className={styles.headerWorkspaceWrap} ref={wrapRef}>
+          <button
+            className={cx(styles.headerWorkspaceButton, workspaceOpen && styles.headerWorkspaceButtonOpen)}
+            onClick={() => setWorkspaceOpen((value) => !value)}
+            type="button"
+          >
+            <span className={styles.workspaceDot} style={{ backgroundColor: workspaceDotColor }} />
+            <span className={styles.workspaceLabel}>{workspaceLabel}</span>
+            <span className={styles.dropdownArrow}>▾</span>
+          </button>
+          <div className={cx(styles.headerWorkspaceMenu, workspaceOpen && styles.headerWorkspaceMenuOpen)}>
+            <Link
+              className={cx(styles.dropdownItem, currentWorkspaceId === "all" && styles.dropdownItemActive)}
+              href={buildAppHref(currentPath, { accountSlug, monthKey }) as never}
+              onClick={() => setWorkspaceOpen(false)}
+              prefetch
+            >
+              <span className={styles.workspaceDot} style={{ backgroundColor: "#888" }} />
+              Alle kontoer
+            </Link>
+            {workspaces.map((workspace) => (
+              <Link
+                key={workspace.id}
+                className={cx(
+                  styles.dropdownItem,
+                  workspace.id === currentWorkspaceId && styles.dropdownItemActive
+                )}
+                href={
+                  buildAppHref(currentPath, {
+                    accountSlug,
+                    monthKey,
+                    workspaceId: workspace.id
+                  }) as never
+                }
+                onClick={() => setWorkspaceOpen(false)}
+                prefetch
+              >
+                <span className={styles.workspaceDot} style={{ backgroundColor: workspace.color }} />
+                {workspace.name}
+              </Link>
+            ))}
+          </div>
+        </div>
+        <div className={styles.spacer} />
+        <div className={styles.searchWrap}>
+          <span className={styles.searchIcon}>⌕</span>
+          <input
+            className={styles.searchInput}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Søk..."
+            value={searchValue}
+          />
+        </div>
+        {actions}
+      </header>
+
+      <header className={cx(styles.topbar, styles.topbarMobile)}>
         <div className={styles.topbarHeaderRow}>
           <div className={styles.topbarHeading}>
             <div className={styles.topbarEyebrow}>{currentAccountName}</div>
             <div className={styles.topbarTitle}>{title}</div>
           </div>
 
-          <div className={styles.topbarDesktopTools}>
-            <div className={styles.headerWorkspaceWrap} ref={wrapRef}>
-              <button
-                className={cx(
-                  styles.headerWorkspaceButton,
-                  workspaceOpen && styles.headerWorkspaceButtonOpen
-                )}
-                onClick={() => setWorkspaceOpen((value) => !value)}
-                type="button"
-              >
-                <span className={styles.workspaceDot} style={{ backgroundColor: workspaceDotColor }} />
-                <span className={styles.workspaceLabel}>{workspaceLabel}</span>
-                <span className={styles.dropdownArrow}>▾</span>
-              </button>
-              <div className={cx(styles.headerWorkspaceMenu, workspaceOpen && styles.headerWorkspaceMenuOpen)}>
-                <Link
-                  className={cx(
-                    styles.dropdownItem,
-                    currentWorkspaceId === "all" && styles.dropdownItemActive
-                  )}
-                  href={buildAppHref(currentPath, { accountSlug, monthKey }) as never}
-                  onClick={() => setWorkspaceOpen(false)}
-                  prefetch
-                >
-                  <span className={styles.workspaceDot} style={{ backgroundColor: "#888" }} />
-                  Alle kontoer
-                </Link>
-                {workspaces.map((workspace) => (
-                  <Link
-                    key={workspace.id}
-                    className={cx(
-                      styles.dropdownItem,
-                      workspace.id === currentWorkspaceId && styles.dropdownItemActive
-                    )}
-                    href={
-                      buildAppHref(currentPath, {
-                        accountSlug,
-                        monthKey,
-                        workspaceId: workspace.id
-                      }) as never
-                    }
-                    onClick={() => setWorkspaceOpen(false)}
-                    prefetch
-                  >
-                    <span className={styles.workspaceDot} style={{ backgroundColor: workspace.color }} />
-                    {workspace.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <button
-            className={styles.topbarSheetButton}
-            onClick={() => setSheetOpen(true)}
-            type="button"
-          >
+          <button className={styles.topbarSheetButton} onClick={() => setSheetOpen(true)} type="button">
             Filtre
           </button>
         </div>
@@ -215,10 +217,7 @@ export function Topbar({
                 {accounts.map((account) => (
                   <Link
                     key={account.id}
-                    className={cx(
-                      styles.sheetChip,
-                      account.id === currentAccountId && styles.sheetChipActive
-                    )}
+                    className={cx(styles.sheetChip, account.id === currentAccountId && styles.sheetChipActive)}
                     href={buildAppHref(currentPath, { accountSlug: account.slug, monthKey }) as never}
                     onClick={() => setSheetOpen(false)}
                     prefetch
