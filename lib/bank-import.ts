@@ -1,9 +1,13 @@
 import type {
   BankImportAction,
+  BankClassificationSource,
   BankImportContext,
   BankImportReviewGroup,
   BankImportReviewItem,
   BankImportReviewSummary,
+  BankReportingTreatment,
+  BankTransactionKind,
+  BankTransactionLinkKind,
   BankMatchCandidate,
   BankSuggestion,
   EntryType
@@ -30,6 +34,11 @@ export type ParsedNordeaTransaction = {
   isOwnTransfer: boolean;
   reviewGroup: BankImportReviewGroup;
   suggestedAction: BankImportAction;
+  transactionKind: BankTransactionKind;
+  confidenceScore: number;
+  classificationSource: BankClassificationSource;
+  reviewReason: string;
+  reportingTreatment: BankReportingTreatment;
   rawData: ParsedCsvRow;
 };
 
@@ -54,7 +63,20 @@ export type BankLearningExample = {
   cat: string;
   workspaceId: string | null;
   sourceWorkspaceId: string | null;
+  transactionKind?: BankTransactionKind | null;
+  reportingTreatment?: BankReportingTreatment | null;
   usageCount: number;
+};
+
+export type LinkableBankTransaction = {
+  id: string;
+  bookingDate: string | null;
+  amount: number;
+  paymentType: string;
+  rawLabel: string;
+  normalizedLabel: string;
+  entryType: EntryType;
+  transactionKind: BankTransactionKind;
 };
 
 export type AutoApplyCandidate = {
@@ -89,6 +111,9 @@ const KNOWN_REVIEW_LABELS = [
 ];
 const REVIEW_KEYWORDS = [" TIL ", " FRA ", "VIPPS"];
 const SAFE_AUTO_IMPORT_PAYMENT_TYPES = new Set(["Visa varekjøp/uttak", "Avtalegiro", "Lønn"]);
+const SUBSCRIPTION_PAYMENT_TYPES = new Set(["Avtalegiro"]);
+const INVOICE_KEYWORDS = ["FAKTURA", "KID", "INVOICE"];
+const SALARY_PAYMENT_TYPES = new Set(["Lønn"]);
 
 function csvLineToCells(line: string) {
   const cells: string[] = [];
@@ -186,6 +211,121 @@ export function normalizeNordeaLabel(value: string) {
     .trim();
 }
 
+function clampScore(value: number) {
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function isVippsTransaction(paymentType: string, normalizedLabel: string, rawLabel: string) {
+  return (
+    paymentType.toLowerCase().includes("vipps") ||
+    normalizedLabel.includes("VIPPS") ||
+    rawLabel.toUpperCase().includes("VIPPS")
+  );
+}
+
+function isSubscriptionCandidate(paymentType: string, normalizedLabel: string, entryType: EntryType) {
+  return (
+    entryType === "expense" &&
+    (SUBSCRIPTION_PAYMENT_TYPES.has(paymentType) ||
+      normalizedLabel.includes("SPOTIFY") ||
+      normalizedLabel.includes("NETFLIX") ||
+      normalizedLabel.includes("APPLE.COM/BILL") ||
+      normalizedLabel.includes("GOOGLE") ||
+      normalizedLabel.includes("ADOBE"))
+  );
+}
+
+function isInvoiceCandidate(normalizedLabel: string) {
+  return INVOICE_KEYWORDS.some((keyword) => normalizedLabel.includes(keyword));
+}
+
+function classifyParsedTransaction(args: {
+  paymentType: string;
+  normalizedLabel: string;
+  rawLabel: string;
+  entryType: EntryType;
+  isOwnTransfer: boolean;
+  likelyTransfer: boolean;
+  isReserved: boolean;
+}): {
+  transactionKind: BankTransactionKind;
+  confidenceScore: number;
+  classificationSource: BankClassificationSource;
+  reviewReason: string;
+  reportingTreatment: BankReportingTreatment;
+} {
+  if (args.isReserved) {
+    return {
+      transactionKind: "other" as BankTransactionKind,
+      confidenceScore: 100,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Reservert post uten bokføringsdato.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  if (args.isOwnTransfer || args.likelyTransfer) {
+    return {
+      transactionKind: "bank_transfer" as BankTransactionKind,
+      confidenceScore: args.isOwnTransfer ? 98 : 88,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Betalingstype og tekst ser ut som overføring mellom kontoer eller personer.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  if (isVippsTransaction(args.paymentType, args.normalizedLabel, args.rawLabel)) {
+    return {
+      transactionKind: "vipps" as BankTransactionKind,
+      confidenceScore: 94,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Vipps ble funnet i betalingstype eller tekst.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  if (isSubscriptionCandidate(args.paymentType, args.normalizedLabel, args.entryType)) {
+    return {
+      transactionKind: args.entryType === "income" ? "subscription_income" : "subscription_expense",
+      confidenceScore: 86,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Betalingstype eller kjent tjeneste ligner et gjentakende abonnement.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  if (SALARY_PAYMENT_TYPES.has(args.paymentType)) {
+    return {
+      transactionKind: "salary_or_fee" as BankTransactionKind,
+      confidenceScore: 90,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Betalingstype er registrert som lønn/honorar.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  if (isInvoiceCandidate(args.normalizedLabel)) {
+    return {
+      transactionKind: args.entryType === "income" ? "invoice_income" : "invoice_expense",
+      confidenceScore: 84,
+      classificationSource: "rule" as BankClassificationSource,
+      reviewReason: "Teksten inneholder fakturasignaler som KID eller faktura.",
+      reportingTreatment: "normal" as BankReportingTreatment
+    };
+  }
+
+  return {
+    transactionKind: (args.entryType === "expense" ? "card_purchase" : "other") as BankTransactionKind,
+    confidenceScore: args.entryType === "expense" ? 72 : 60,
+    classificationSource: "rule" as BankClassificationSource,
+    reviewReason:
+      args.entryType === "expense"
+        ? "Standardkjøp uten sterke signaler, behandles som vanlig kortkjøp."
+        : "Ingen tydelige signaler, beholdes som annen inntekt.",
+    reportingTreatment: "normal" as BankReportingTreatment
+  };
+}
+
 function pickRawLabel(row: ParsedCsvRow) {
   return row["Navn"] || row["Tittel"] || row["Mottaker"] || row["Avsender"] || "";
 }
@@ -244,6 +384,15 @@ export function parseNordeaCsv(text: string) {
     const isOwnTransfer = isOwnTransferLabel(normalizedLabel);
     const likelyTransfer = isLikelyTransfer(rawLabel, normalizedLabel, paymentType);
     const reviewRequired = requiresManualReview(rawLabel, normalizedLabel, paymentType);
+    const classification = classifyParsedTransaction({
+      paymentType,
+      normalizedLabel,
+      rawLabel,
+      entryType: amount < 0 ? "expense" : "income",
+      isOwnTransfer,
+      likelyTransfer,
+      isReserved
+    });
     const reviewGroup: BankImportReviewGroup = isReserved || isOwnTransfer
       ? "ignored_candidate"
       : likelyTransfer || reviewRequired
@@ -280,6 +429,11 @@ export function parseNordeaCsv(text: string) {
       isOwnTransfer,
       reviewGroup,
       suggestedAction,
+      transactionKind: classification.transactionKind,
+      confidenceScore: classification.confidenceScore,
+      classificationSource: classification.classificationSource,
+      reviewReason: classification.reviewReason,
+      reportingTreatment: classification.reportingTreatment,
       rawData: row
     };
   });
@@ -406,7 +560,12 @@ export function selectBankSuggestion(
       bestSuggestion = {
         type: example.type,
         cat: example.cat,
-        workspaceId: example.workspaceId
+        workspaceId: example.workspaceId,
+        transactionKind: example.transactionKind ?? (example.type === "income" ? "other" : "card_purchase"),
+        confidenceScore: clampScore(score),
+        classificationSource: "history",
+        reviewReason: `Matcher tidligere bekreftet banktransaksjon${example.usageCount > 1 ? ` (${example.usageCount} ganger)` : ""}.`,
+        reportingTreatment: example.reportingTreatment ?? "normal"
       };
     }
   }
@@ -427,7 +586,12 @@ export function selectBankSuggestion(
       return {
         type: "income",
         cat: "Fakturainntekter",
-        workspaceId: importContext.defaultWorkspaceId
+        workspaceId: importContext.defaultWorkspaceId,
+        transactionKind: "invoice_income",
+        confidenceScore: 82,
+        classificationSource: "rule",
+        reviewReason: "Inntekt i fakturaprosjekt foreslås som fakturainnbetaling.",
+        reportingTreatment: "normal"
       };
     }
   }
@@ -436,7 +600,12 @@ export function selectBankSuggestion(
     return {
       type: fallbackMatch.type,
       cat: fallbackMatch.cat,
-      workspaceId: importContext?.defaultWorkspaceId ?? fallbackMatch.workspaceId
+      workspaceId: importContext?.defaultWorkspaceId ?? fallbackMatch.workspaceId,
+      transactionKind: fallbackMatch.type === "income" ? "other" : "card_purchase",
+      confidenceScore: 78,
+      classificationSource: "match",
+      reviewReason: "Matcher eksisterende transaksjon med samme beløp og lignende tekst.",
+      reportingTreatment: "normal"
     };
   }
 
@@ -444,7 +613,12 @@ export function selectBankSuggestion(
     return {
       type: transaction.entryType,
       cat: "Annet",
-      workspaceId: importContext.defaultWorkspaceId
+      workspaceId: importContext.defaultWorkspaceId,
+      transactionKind: transaction.entryType === "expense" ? "card_purchase" : "other",
+      confidenceScore: 55,
+      classificationSource: "rule",
+      reviewReason: "Mangler sterk historikk, bruker standardforslag i valgt prosjekt.",
+      reportingTreatment: "normal"
     };
   }
 
@@ -494,7 +668,7 @@ export function classifyAutoApplyCandidate(
     };
   }
 
-  if (SAFE_AUTO_IMPORT_PAYMENT_TYPES.has(item.paymentType)) {
+  if (SAFE_AUTO_IMPORT_PAYMENT_TYPES.has(item.paymentType) && item.confidenceScore >= 85) {
     return {
       item,
       action: "import_new",
@@ -503,6 +677,76 @@ export function classifyAutoApplyCandidate(
   }
 
   return null;
+}
+
+function looksLikeVippsOffsetCandidate(transaction: LinkableBankTransaction) {
+  return transaction.transactionKind === "vipps";
+}
+
+function looksLikeTransferOffsetCandidate(transaction: LinkableBankTransaction) {
+  return transaction.transactionKind === "bank_transfer";
+}
+
+export function suggestRelatedTransactionLinks(transactions: LinkableBankTransaction[]) {
+  const links: Array<{
+    leftTransactionId: string;
+    rightTransactionId: string;
+    linkKind: BankTransactionLinkKind;
+    confidenceScore: number;
+    reviewReason: string;
+  }> = [];
+  const seen = new Set<string>();
+
+  for (const left of transactions) {
+    if (!looksLikeVippsOffsetCandidate(left)) {
+      continue;
+    }
+
+    for (const right of transactions) {
+      if (left.id === right.id || !looksLikeTransferOffsetCandidate(right)) {
+        continue;
+      }
+
+      if (left.entryType === right.entryType) {
+        continue;
+      }
+
+      const amountDistance = Math.abs(left.amount - right.amount);
+      if (amountDistance > 0.001) {
+        continue;
+      }
+
+      const daysApart = dayDistance(left.bookingDate ?? "", right.bookingDate ?? "");
+      if (!Number.isFinite(daysApart) || daysApart > 5) {
+        continue;
+      }
+
+      const textScore = Math.max(
+        scoreNormalizedLabels(left.normalizedLabel, right.normalizedLabel),
+        left.rawLabel.toUpperCase().includes("VIPPS") || right.rawLabel.toUpperCase().includes("VIPPS") ? 35 : 0
+      );
+      const confidenceScore = clampScore(55 + textScore / 2 + Math.max(0, 20 - daysApart * 4));
+      if (confidenceScore < 80) {
+        continue;
+      }
+
+      const key = [left.id, right.id].sort().join("|");
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+      links.push({
+        leftTransactionId: left.id,
+        rightTransactionId: right.id,
+        linkKind: "vipps_offset",
+        confidenceScore,
+        reviewReason: "Vipps-post og overføring har samme beløp og tett timing, og ser ut som mellomledd."
+      });
+    }
+  }
+
+  return links;
 }
 
 export function summarizeReviewItems(items: BankImportReviewItem[]): BankImportReviewSummary {

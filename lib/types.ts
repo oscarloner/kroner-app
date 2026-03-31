@@ -29,6 +29,20 @@ export const CATEGORIES = [
 export type EntryType = "income" | "expense";
 export type RecurringType = "sub" | "fixed";
 export type AccountRole = "owner" | "admin" | "member";
+export type BankTransactionKind =
+  | "subscription_expense"
+  | "subscription_income"
+  | "vipps"
+  | "bank_transfer"
+  | "invoice_income"
+  | "invoice_expense"
+  | "card_purchase"
+  | "salary_or_fee"
+  | "other";
+export type BankClassificationSource = "rule" | "history" | "match" | "manual";
+export type BankReportingTreatment = "normal" | "offset_candidate" | "offset_hidden";
+export type BankTransactionLinkKind = "vipps_offset" | "transfer_pair";
+export type BankTransactionLinkStatus = "suggested" | "confirmed" | "rejected";
 
 export type AppAccount = {
   id: string;
@@ -78,6 +92,8 @@ export type Entry = {
   paymentType?: string | null;
   importBatchId?: string | null;
   matchStatus?: "manual" | "linked" | "imported" | "ignored" | "transfer" | null;
+  transactionKind?: BankTransactionKind | null;
+  reportingTreatment?: BankReportingTreatment | null;
   sourceKind?: "entry" | "recurring";
   recurringType?: RecurringType | null;
   projectedFromRecurringId?: string | null;
@@ -173,6 +189,23 @@ export type BankSuggestion = {
   type: EntryType;
   cat: string;
   workspaceId: string | null;
+  transactionKind: BankTransactionKind;
+  confidenceScore: number;
+  classificationSource: BankClassificationSource;
+  reviewReason: string;
+  reportingTreatment: BankReportingTreatment;
+};
+
+export type BankTransactionLinkSuggestion = {
+  id: string;
+  otherTransactionId: string;
+  otherRawLabel: string;
+  otherPaymentType: string;
+  otherAmount: number;
+  otherEntryType: EntryType;
+  linkKind: BankTransactionLinkKind;
+  confidenceScore: number;
+  status: BankTransactionLinkStatus;
 };
 
 export type BankMatchCandidate = {
@@ -199,6 +232,12 @@ export type BankImportReviewItem = {
   selectedAction: BankImportAction | null;
   suggestedMatch: BankMatchCandidate | null;
   suggestion: BankSuggestion | null;
+  transactionKind: BankTransactionKind;
+  confidenceScore: number;
+  classificationSource: BankClassificationSource;
+  reviewReason: string;
+  reportingTreatment: BankReportingTreatment;
+  linkSuggestions: BankTransactionLinkSuggestion[];
   isOwnTransfer: boolean;
   isReserved: boolean;
 };

@@ -2,18 +2,25 @@ import {
   classifyAutoApplyCandidate,
   findProbableMatch,
   selectBankSuggestion,
+  suggestRelatedTransactionLinks,
   summarizeReviewItems,
   type AutoApplyCandidate,
   type BankLearningExample,
   type ExistingEntryMatch,
+  type LinkableBankTransaction,
   type ParsedNordeaTransaction
 } from "@/lib/bank-import";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  BankClassificationSource,
   BankImportContext,
   BankImportReviewItem,
   BankImportReviewSummary,
   BankMatchCandidate,
+  BankReportingTreatment,
+  BankTransactionKind,
+  BankTransactionLinkStatus,
+  BankTransactionLinkSuggestion,
   EntryType
 } from "@/lib/types";
 
@@ -43,9 +50,15 @@ type BankTransactionRow = {
   review_group: BankImportReviewItem["reviewGroup"];
   suggested_action: BankImportReviewItem["suggestedAction"];
   selected_action: BankImportReviewItem["selectedAction"];
+  transaction_kind: BankTransactionKind;
+  confidence_score: number;
+  classification_source: BankClassificationSource | null;
+  review_reason: string | null;
+  reporting_treatment: BankReportingTreatment;
   suggested_match_score: number;
   suggested_entry_id: string | null;
   selected_entry_id: string | null;
+  applied_entry_id?: string | null;
   raw_data: { isOwnTransfer?: boolean; isReserved?: boolean };
   status?: "pending" | "applied" | "ignored" | "transfer" | "linked";
 };
@@ -58,7 +71,18 @@ type LearningRow = {
   cat: string;
   workspace_id: string | null;
   source_workspace_id: string | null;
+  transaction_kind: BankTransactionKind | null;
+  reporting_treatment: BankReportingTreatment | null;
   usage_count: number;
+};
+
+type TransactionLinkRow = {
+  id: string;
+  left_bank_transaction_id: string;
+  right_bank_transaction_id: string;
+  link_kind: "vipps_offset" | "transfer_pair";
+  confidence_score: number;
+  status: BankTransactionLinkStatus;
 };
 
 type BatchRow = {
@@ -115,7 +139,7 @@ export async function fetchBankLearningExamples(accountId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bank_learning_examples")
-    .select("normalized_label, raw_label, payment_type, entry_type, cat, workspace_id, source_workspace_id, usage_count")
+    .select("normalized_label, raw_label, payment_type, entry_type, cat, workspace_id, source_workspace_id, transaction_kind, reporting_treatment, usage_count")
     .eq("account_id", accountId)
     .order("usage_count", { ascending: false })
     .limit(300);
@@ -132,16 +156,60 @@ export async function fetchBankLearningExamples(accountId: string) {
     cat: example.cat,
     workspaceId: example.workspace_id,
     sourceWorkspaceId: example.source_workspace_id,
+    transactionKind: example.transaction_kind,
+    reportingTreatment: example.reporting_treatment,
     usageCount: example.usage_count
   }));
+}
+
+function toLinkSuggestions(
+  row: BankTransactionRow,
+  links: TransactionLinkRow[],
+  rowsById: Map<string, BankTransactionRow>
+) {
+  const suggestions: BankTransactionLinkSuggestion[] = [];
+
+  for (const link of links) {
+    const otherId =
+      link.left_bank_transaction_id === row.id
+        ? link.right_bank_transaction_id
+        : link.right_bank_transaction_id === row.id
+          ? link.left_bank_transaction_id
+          : null;
+
+    if (!otherId) {
+      continue;
+    }
+
+    const other = rowsById.get(otherId);
+    if (!other) {
+      continue;
+    }
+
+    suggestions.push({
+      id: link.id,
+      otherTransactionId: otherId,
+      otherRawLabel: other.raw_label,
+      otherPaymentType: other.payment_type,
+      otherAmount: Number(other.amount),
+      otherEntryType: other.entry_type,
+      linkKind: link.link_kind,
+      confidenceScore: link.confidence_score,
+      status: link.status
+    });
+  }
+
+  return suggestions;
 }
 
 export function buildStoredReviewItems(
   rows: BankTransactionRow[],
   entries: ExistingEntryMatch[],
   learningExamples: BankLearningExample[],
+  links: TransactionLinkRow[],
   importContext?: BankImportContext
 ) {
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
   return rows.map<BankImportReviewItem>((row) => {
     const suggestedMatch = row.suggested_entry_id
       ? findProbableMatch(
@@ -164,6 +232,11 @@ export function buildStoredReviewItems(
             isOwnTransfer: Boolean(row.raw_data?.isOwnTransfer),
             reviewGroup: row.review_group,
             suggestedAction: row.suggested_action,
+            transactionKind: row.transaction_kind,
+            confidenceScore: row.confidence_score,
+            classificationSource: row.classification_source ?? "rule",
+            reviewReason: row.review_reason ?? "",
+            reportingTreatment: row.reporting_treatment,
             rawData: {}
           },
           entries.filter((entry) => entry.id === row.suggested_entry_id)
@@ -196,6 +269,12 @@ export function buildStoredReviewItems(
       selectedAction: row.selected_action,
       suggestedMatch,
       suggestion,
+      transactionKind: row.transaction_kind,
+      confidenceScore: row.confidence_score,
+      classificationSource: row.classification_source ?? "rule",
+      reviewReason: row.review_reason ?? "",
+      reportingTreatment: row.reporting_treatment,
+      linkSuggestions: toLinkSuggestions(row, links, rowsById),
       isOwnTransfer: Boolean(row.raw_data?.isOwnTransfer),
       isReserved: Boolean(row.raw_data?.isReserved)
     };
@@ -212,7 +291,7 @@ export function buildReviewItemsFromParsed(
   return parsedRows.map<BankImportReviewItem>((row) => {
     const suggestedMatch = !row.isReserved && !row.isOwnTransfer ? findProbableMatch(row, entries) : null;
     const workspaceConflict = hasWorkspaceConflict(suggestedMatch, importContext);
-    const reviewGroup =
+  const reviewGroup =
       row.reviewGroup === "ignored_candidate"
         ? "ignored_candidate"
         : suggestedMatch
@@ -241,10 +320,31 @@ export function buildReviewItemsFromParsed(
       selectedAction: null,
       suggestedMatch,
       suggestion,
+      transactionKind: suggestion?.transactionKind ?? row.transactionKind,
+      confidenceScore: Math.max(row.confidenceScore, suggestion?.confidenceScore ?? 0),
+      classificationSource: suggestion?.classificationSource ?? row.classificationSource,
+      reviewReason: suggestion?.reviewReason ?? row.reviewReason,
+      reportingTreatment: suggestion?.reportingTreatment ?? row.reportingTreatment,
+      linkSuggestions: [],
       isOwnTransfer: row.isOwnTransfer,
       isReserved: row.isReserved
     };
   });
+}
+
+export function buildSuggestedTransactionLinks(rows: BankTransactionRow[]) {
+  return suggestRelatedTransactionLinks(
+    rows.map<LinkableBankTransaction>((row) => ({
+      id: row.id,
+      bookingDate: row.booking_date,
+      amount: Number(row.amount),
+      paymentType: row.payment_type,
+      rawLabel: row.raw_label,
+      normalizedLabel: row.normalized_label,
+      entryType: row.entry_type,
+      transactionKind: row.transaction_kind
+    }))
+  );
 }
 
 export function splitParsedReviewItems(
@@ -338,7 +438,7 @@ export async function getBatchReview(batchId: string, accountId: string) {
   const { data, error } = await supabase
     .from("bank_transactions")
     .select(
-      "id, batch_id, booking_date, amount, currency, payment_type, raw_label, normalized_label, entry_type, review_group, suggested_action, selected_action, suggested_match_score, suggested_entry_id, selected_entry_id, raw_data, status"
+      "id, batch_id, booking_date, amount, currency, payment_type, raw_label, normalized_label, entry_type, review_group, suggested_action, selected_action, transaction_kind, confidence_score, classification_source, review_reason, reporting_treatment, suggested_match_score, suggested_entry_id, selected_entry_id, applied_entry_id, raw_data, status"
     )
     .eq("batch_id", batchId)
     .eq("account_id", accountId)
@@ -347,6 +447,18 @@ export async function getBatchReview(batchId: string, accountId: string) {
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  const { data: linkRows, error: linkError } = await supabase
+    .from("transaction_links")
+    .select(
+      "id, left_bank_transaction_id, right_bank_transaction_id, link_kind, confidence_score, status"
+    )
+    .eq("batch_id", batchId)
+    .eq("account_id", accountId);
+
+  if (linkError) {
+    throw new Error(linkError.message);
   }
 
   const [entries, learningExamples] = await Promise.all([
@@ -359,6 +471,7 @@ export async function getBatchReview(batchId: string, accountId: string) {
     rows.filter((row) => row.status === "pending"),
     entries,
     learningExamples,
+    (linkRows ?? []) as TransactionLinkRow[],
     importContext
   );
   const summary = summarizeStoredRows(rows);

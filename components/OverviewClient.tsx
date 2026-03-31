@@ -58,14 +58,17 @@ export function OverviewClient({
     );
 
   const filteredMonthEntries = monthEntries.filter((entry) => matches(entry));
+  const reportingMonthEntries = filteredMonthEntries.filter(
+    (entry) => entry.reportingTreatment !== "offset_hidden"
+  );
 
   const filteredRecurring = recurringItems.filter((item) => matches(item));
   const fixedItems = filteredRecurring.filter((item) => item.type === "fixed");
   const subscriptionItems = filteredRecurring.filter((item) => item.type === "sub");
-  const totalIncome = filteredMonthEntries
+  const totalIncome = reportingMonthEntries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const totalExpense = filteredMonthEntries
+  const totalExpense = reportingMonthEntries
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const fixed = fixedItems.reduce((sum, item) => sum + item.amount, 0);
@@ -112,14 +115,14 @@ export function OverviewClient({
               <div className={styles.cardLabel}>Inntekter totalt</div>
               <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(totalIncome)}</div>
               <div className={styles.cardSub}>
-                {filteredMonthEntries.filter((entry) => entry.type === "income").length} poster
+                {reportingMonthEntries.filter((entry) => entry.type === "income").length} poster
               </div>
             </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Utgifter totalt</div>
               <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(totalExpense)}</div>
               <div className={styles.cardSub}>
-                {filteredMonthEntries.filter((entry) => entry.type === "expense").length} poster
+                {reportingMonthEntries.filter((entry) => entry.type === "expense").length} poster
               </div>
             </article>
             <article className={styles.card}>

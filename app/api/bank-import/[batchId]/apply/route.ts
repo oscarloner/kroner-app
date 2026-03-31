@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
-import { CATEGORIES, type EntryType } from "@/lib/types";
+import {
+  CATEGORIES,
+  type BankReportingTreatment,
+  type BankTransactionKind,
+  type BankTransactionLinkStatus,
+  type EntryType
+} from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 type ApplyDecision = {
@@ -10,6 +16,12 @@ type ApplyDecision = {
   cat?: string;
   workspaceId?: string | null;
   matchEntryId?: string | null;
+  transactionKind?: BankTransactionKind;
+};
+
+type LinkDecision = {
+  linkId: string;
+  status: Extract<BankTransactionLinkStatus, "confirmed" | "rejected">;
 };
 
 type BankTransactionRow = {
@@ -24,6 +36,8 @@ type BankTransactionRow = {
   entry_type: EntryType;
   source_workspace_id: string | null;
   source_fingerprint: string;
+  transaction_kind: BankTransactionKind;
+  reporting_treatment: BankReportingTreatment;
   suggested_entry_id: string | null;
   selected_entry_id: string | null;
 };
@@ -40,6 +54,12 @@ type BatchRow = {
   default_workspace_id: string | null;
 };
 
+type TransactionLinkRow = {
+  id: string;
+  left_bank_transaction_id: string;
+  right_bank_transaction_id: string;
+};
+
 function normalizeWorkspaceId(value: string | null | undefined) {
   return value || null;
 }
@@ -52,15 +72,59 @@ function resolveCategory(value: string | undefined, fallback: string) {
   return CATEGORIES.includes(value as (typeof CATEGORIES)[number]) ? value : fallback;
 }
 
+async function upsertLearningExample(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  accountId: string;
+  userId: string;
+  rawLabel: string;
+  normalizedLabel: string;
+  paymentType: string;
+  entryType: EntryType;
+  cat: string;
+  workspaceId: string | null;
+  sourceWorkspaceId: string | null;
+  transactionKind: BankTransactionKind;
+  reportingTreatment: BankReportingTreatment;
+}) {
+  const { error } = await args.supabase.from("bank_learning_examples").upsert(
+    {
+      account_id: args.accountId,
+      created_by: args.userId,
+      source_name: "nordea_csv",
+      raw_label: args.rawLabel,
+      normalized_label: args.normalizedLabel,
+      payment_type: args.paymentType,
+      entry_type: args.entryType,
+      cat: args.cat,
+      workspace_id: args.workspaceId,
+      source_workspace_id: args.sourceWorkspaceId,
+      transaction_kind: args.transactionKind,
+      reporting_treatment: args.reportingTreatment,
+      entry_name: args.rawLabel,
+      usage_count: 1,
+      last_confirmed_at: new Date().toISOString()
+    },
+    {
+      onConflict: "account_id,normalized_label,payment_type,entry_type,cat,workspace_id",
+      ignoreDuplicates: false
+    }
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function POST(
   request: Request,
   context: { params: Promise<{ batchId: string }> }
 ) {
   try {
     const { batchId } = await context.params;
-    const { accountId, decisions } = (await request.json()) as {
+    const { accountId, decisions, linkDecisions } = (await request.json()) as {
       accountId?: string;
       decisions?: ApplyDecision[];
+      linkDecisions?: LinkDecision[];
     };
     const account = await requireAccountAccess(accountId);
     const supabase = await createClient();
@@ -83,7 +147,7 @@ export async function POST(
     const { data: transactions, error: transactionError } = await supabase
       .from("bank_transactions")
       .select(
-        "id, account_id, batch_id, booking_date, amount, payment_type, raw_label, normalized_label, entry_type, source_workspace_id, source_fingerprint, suggested_entry_id, selected_entry_id"
+        "id, account_id, batch_id, booking_date, amount, payment_type, raw_label, normalized_label, entry_type, source_workspace_id, source_fingerprint, transaction_kind, reporting_treatment, suggested_entry_id, selected_entry_id"
       )
       .eq("batch_id", batchId)
       .eq("account_id", account.accountId)
@@ -94,6 +158,22 @@ export async function POST(
 
     if (transactionError) {
       throw new Error(transactionError.message);
+    }
+
+    const { data: links, error: linkError } = await supabase
+      .from("transaction_links")
+      .select("id, left_bank_transaction_id, right_bank_transaction_id")
+      .eq("batch_id", batchId)
+      .eq("account_id", account.accountId)
+      .in(
+        "id",
+        (linkDecisions ?? []).map((decision) => decision.linkId).length > 0
+          ? (linkDecisions ?? []).map((decision) => decision.linkId)
+          : ["00000000-0000-0000-0000-000000000000"]
+      );
+
+    if (linkError) {
+      throw new Error(linkError.message);
     }
 
     const transactionMap = new Map(
@@ -120,6 +200,7 @@ export async function POST(
     }
 
     const linkedEntryMap = new Map(((linkedEntries ?? []) as EntryRow[]).map((row) => [row.id, row]));
+    const linkMap = new Map(((links ?? []) as TransactionLinkRow[]).map((row) => [row.id, row]));
     let appliedCount = 0;
 
     for (const decision of decisions) {
@@ -131,7 +212,7 @@ export async function POST(
       if (decision.action === "ignore") {
         const { error } = await supabase
           .from("bank_transactions")
-          .update({ selected_action: "ignore", status: "ignored" })
+          .update({ selected_action: "ignore", status: "ignored", reporting_treatment: "normal" })
           .eq("id", transaction.id);
 
         if (error) {
@@ -143,7 +224,12 @@ export async function POST(
       if (decision.action === "mark_transfer") {
         const { error } = await supabase
           .from("bank_transactions")
-          .update({ selected_action: "mark_transfer", status: "transfer" })
+          .update({
+            selected_action: "mark_transfer",
+            status: "transfer",
+            transaction_kind: "bank_transfer",
+            reporting_treatment: "normal"
+          })
           .eq("id", transaction.id);
 
         if (error) {
@@ -151,6 +237,8 @@ export async function POST(
         }
         continue;
       }
+
+      const chosenTransactionKind = decision.transactionKind ?? transaction.transaction_kind ?? "other";
 
       if (!transaction.booking_date) {
         continue;
@@ -178,6 +266,8 @@ export async function POST(
             type: transaction.entry_type,
             date: transaction.booking_date,
             source_workspace_id: transaction.source_workspace_id,
+            transaction_kind: chosenTransactionKind,
+            reporting_treatment: transaction.reporting_treatment,
             source_type: "nordea_csv",
             source_name: "Nordea",
             source_fingerprint: transaction.source_fingerprint,
@@ -198,6 +288,7 @@ export async function POST(
             selected_action: "link_existing",
             selected_entry_id: targetEntryId,
             applied_entry_id: targetEntryId,
+            transaction_kind: chosenTransactionKind,
             status: "linked"
           })
           .eq("id", transaction.id);
@@ -206,18 +297,19 @@ export async function POST(
           throw new Error(updateTransactionError.message);
         }
 
-        await supabase.from("bank_learning_examples").insert({
-          account_id: account.accountId,
-          created_by: account.user.id,
-          source_name: "nordea_csv",
-          raw_label: transaction.raw_label,
-          normalized_label: transaction.normalized_label,
-          payment_type: transaction.payment_type,
-          entry_type: transaction.entry_type,
+        await upsertLearningExample({
+          supabase,
+          accountId: account.accountId,
+          userId: account.user.id,
+          rawLabel: transaction.raw_label,
+          normalizedLabel: transaction.normalized_label,
+          paymentType: transaction.payment_type,
+          entryType: transaction.entry_type,
           cat: linkedEntry.cat,
-          workspace_id: linkedEntry.workspace_id,
-          source_workspace_id: transaction.source_workspace_id,
-          entry_name: transaction.raw_label
+          workspaceId: linkedEntry.workspace_id,
+          sourceWorkspaceId: transaction.source_workspace_id,
+          transactionKind: chosenTransactionKind,
+          reportingTreatment: transaction.reporting_treatment
         });
 
         appliedCount += 1;
@@ -253,6 +345,8 @@ export async function POST(
             cat: chosenCat,
             workspace_id: workspaceId,
             source_workspace_id: transaction.source_workspace_id,
+            transaction_kind: chosenTransactionKind,
+            reporting_treatment: transaction.reporting_treatment,
             date: transaction.booking_date,
             source_type: "nordea_csv",
             source_name: "Nordea",
@@ -273,6 +367,7 @@ export async function POST(
           .update({
             selected_action: "import_new",
             applied_entry_id: appliedEntryId,
+            transaction_kind: chosenTransactionKind,
             status: "applied"
           })
           .eq("id", transaction.id);
@@ -281,18 +376,19 @@ export async function POST(
           throw new Error(txUpdateError.message);
         }
 
-        await supabase.from("bank_learning_examples").insert({
-          account_id: account.accountId,
-          created_by: account.user.id,
-          source_name: "nordea_csv",
-          raw_label: transaction.raw_label,
-          normalized_label: transaction.normalized_label,
-          payment_type: transaction.payment_type,
-          entry_type: chosenType,
+        await upsertLearningExample({
+          supabase,
+          accountId: account.accountId,
+          userId: account.user.id,
+          rawLabel: transaction.raw_label,
+          normalizedLabel: transaction.normalized_label,
+          paymentType: transaction.payment_type,
+          entryType: chosenType,
           cat: chosenCat,
-          workspace_id: workspaceId,
-          source_workspace_id: transaction.source_workspace_id,
-          entry_name: transaction.raw_label
+          workspaceId,
+          sourceWorkspaceId: transaction.source_workspace_id,
+          transactionKind: chosenTransactionKind,
+          reportingTreatment: transaction.reporting_treatment
         });
 
         appliedCount += 1;
@@ -312,6 +408,8 @@ export async function POST(
           cat: chosenCat,
           workspace_id: workspaceId,
           source_workspace_id: transaction.source_workspace_id,
+          transaction_kind: chosenTransactionKind,
+          reporting_treatment: transaction.reporting_treatment,
           date: transaction.booking_date,
           link: null,
           note: null,
@@ -335,6 +433,7 @@ export async function POST(
         .update({
           selected_action: "import_new",
           applied_entry_id: insertedEntry.id,
+          transaction_kind: chosenTransactionKind,
           status: "applied"
         })
         .eq("id", transaction.id);
@@ -343,21 +442,75 @@ export async function POST(
         throw new Error(updateTransactionError.message);
       }
 
-      await supabase.from("bank_learning_examples").insert({
-        account_id: account.accountId,
-        created_by: account.user.id,
-        source_name: "nordea_csv",
-        raw_label: transaction.raw_label,
-        normalized_label: transaction.normalized_label,
-        payment_type: transaction.payment_type,
-        entry_type: chosenType,
+      await upsertLearningExample({
+        supabase,
+        accountId: account.accountId,
+        userId: account.user.id,
+        rawLabel: transaction.raw_label,
+        normalizedLabel: transaction.normalized_label,
+        paymentType: transaction.payment_type,
+        entryType: chosenType,
         cat: chosenCat,
-        workspace_id: workspaceId,
-        source_workspace_id: transaction.source_workspace_id,
-        entry_name: transaction.raw_label
+        workspaceId,
+        sourceWorkspaceId: transaction.source_workspace_id,
+        transactionKind: chosenTransactionKind,
+        reportingTreatment: transaction.reporting_treatment
       });
 
       appliedCount += 1;
+    }
+
+    for (const linkDecision of linkDecisions ?? []) {
+      const link = linkMap.get(linkDecision.linkId);
+      if (!link) {
+        continue;
+      }
+
+      const nextTreatment = linkDecision.status === "confirmed" ? "offset_hidden" : "normal";
+      const { error: updateLinkError } = await supabase
+        .from("transaction_links")
+        .update({ status: linkDecision.status })
+        .eq("id", link.id)
+        .eq("batch_id", batchId)
+        .eq("account_id", account.accountId);
+
+      if (updateLinkError) {
+        throw new Error(updateLinkError.message);
+      }
+
+      const { error: updateTxError } = await supabase
+        .from("bank_transactions")
+        .update({ reporting_treatment: nextTreatment })
+        .eq("batch_id", batchId)
+        .eq("account_id", account.accountId)
+        .in("id", [link.left_bank_transaction_id, link.right_bank_transaction_id]);
+
+      if (updateTxError) {
+        throw new Error(updateTxError.message);
+      }
+
+      if (linkDecision.status === "confirmed") {
+        const linkedTransactions = [link.left_bank_transaction_id, link.right_bank_transaction_id]
+          .map((id) => transactionMap.get(id))
+          .filter((value): value is BankTransactionRow => Boolean(value));
+
+        for (const transaction of linkedTransactions) {
+          await upsertLearningExample({
+            supabase,
+            accountId: account.accountId,
+            userId: account.user.id,
+            rawLabel: transaction.raw_label,
+            normalizedLabel: transaction.normalized_label,
+            paymentType: transaction.payment_type,
+            entryType: transaction.entry_type,
+            cat: "Annet",
+            workspaceId: null,
+            sourceWorkspaceId: transaction.source_workspace_id,
+            transactionKind: transaction.transaction_kind,
+            reportingTreatment: "offset_hidden"
+          });
+        }
+      }
     }
 
     const { error: batchUpdateError } = await supabase

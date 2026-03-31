@@ -33,7 +33,7 @@ export function Charts({
     const monthEntries = entries.filter((entry) => {
       const date = new Date(entry.date);
       return date.getMonth() === month.month && date.getFullYear() === month.year;
-    });
+    }).filter((entry) => entry.reportingTreatment !== "offset_hidden");
 
     const income = monthEntries
       .filter((entry) => entry.type === "income")
@@ -55,6 +55,7 @@ export function Charts({
       .filter((entry) => {
         const date = new Date(entry.date);
         return (
+          entry.reportingTreatment !== "offset_hidden" &&
           entry.type === "expense" &&
           date.getMonth() === currentMonth &&
           date.getFullYear() === currentYear

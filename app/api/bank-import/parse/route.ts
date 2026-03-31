@@ -2,13 +2,20 @@ import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import { parseNordeaCsv } from "@/lib/bank-import";
 import {
+  buildSuggestedTransactionLinks,
   buildReviewItemsFromParsed,
   fetchBankLearningExamples,
   fetchExistingEntryMatches,
   splitParsedReviewItems,
   summarizeParsedRows
 } from "@/lib/bank-import-server";
-import type { BankImportAction, BankImportReviewItem, EntryType } from "@/lib/types";
+import type {
+  BankImportAction,
+  BankImportReviewItem,
+  BankReportingTreatment,
+  BankTransactionKind,
+  EntryType
+} from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 function resolveCategory(value: string | undefined) {
@@ -36,6 +43,8 @@ async function applyImportNew(args: {
   type: EntryType;
   cat: string;
   workspaceId: string | null;
+  transactionKind: BankTransactionKind;
+  reportingTreatment: BankReportingTreatment;
 }) {
   const existingByFingerprint = await args.supabase
     .from("entries")
@@ -61,6 +70,8 @@ async function applyImportNew(args: {
         cat: args.cat,
         workspace_id: args.workspaceId,
         source_workspace_id: args.sourceWorkspaceId,
+        transaction_kind: args.transactionKind,
+        reporting_treatment: args.reportingTreatment,
         date: args.bookingDate,
         source_type: "nordea_csv",
         source_name: "Nordea",
@@ -81,6 +92,8 @@ async function applyImportNew(args: {
       .update({
         selected_action: "import_new",
         applied_entry_id: appliedEntryId,
+        transaction_kind: args.transactionKind,
+        reporting_treatment: args.reportingTreatment,
         status: "applied"
       })
       .eq("batch_id", args.batchId)
@@ -103,6 +116,8 @@ async function applyImportNew(args: {
         cat: args.cat,
         workspace_id: args.workspaceId,
         source_workspace_id: args.sourceWorkspaceId,
+        transaction_kind: args.transactionKind,
+        reporting_treatment: args.reportingTreatment,
         date: args.bookingDate,
         link: null,
         note: null,
@@ -126,6 +141,8 @@ async function applyImportNew(args: {
       .update({
         selected_action: "import_new",
         applied_entry_id: insertedEntry.data.id,
+        transaction_kind: args.transactionKind,
+        reporting_treatment: args.reportingTreatment,
         status: "applied"
       })
       .eq("batch_id", args.batchId)
@@ -148,6 +165,8 @@ async function applyImportNew(args: {
       cat: args.cat,
       workspace_id: args.workspaceId,
       source_workspace_id: args.sourceWorkspaceId,
+      transaction_kind: args.transactionKind,
+      reporting_treatment: args.reportingTreatment,
       entry_name: args.rawLabel,
       usage_count: 1,
       last_confirmed_at: new Date().toISOString()
@@ -175,7 +194,7 @@ export async function POST(request: Request) {
     }
 
     if (typeof workspaceId !== "string" || workspaceId.length === 0) {
-      return NextResponse.json({ message: "Velg workspace for denne CSV-importen." }, { status: 400 });
+      return NextResponse.json({ message: "Velg prosjekt/selskap for denne CSV-importen." }, { status: 400 });
     }
 
     const account = await requireAccountAccess(accountId);
@@ -199,7 +218,7 @@ export async function POST(request: Request) {
     }
 
     if (!workspace) {
-      return NextResponse.json({ message: "Ugyldig workspace for valgt konto." }, { status: 400 });
+      return NextResponse.json({ message: "Ugyldig prosjekt/selskap for valgt konto." }, { status: 400 });
     }
 
     const { data: batch, error: batchError } = await supabase
@@ -269,6 +288,12 @@ export async function POST(request: Request) {
         entry_type: item.entryType,
         source_workspace_id: importContext.defaultWorkspaceId,
         source_fingerprint: parsed?.sourceFingerprint ?? "",
+        transaction_kind: item.transactionKind,
+        confidence_score: item.confidenceScore,
+        classification_source: item.classificationSource,
+        review_reason: item.reviewReason,
+        project_workspace_id: item.suggestion?.workspaceId ?? importContext.defaultWorkspaceId,
+        reporting_treatment: item.reportingTreatment,
         review_group: item.reviewGroup,
         suggested_action: item.suggestedAction,
         suggested_entry_id: item.suggestedMatch?.entryId ?? null,
@@ -283,10 +308,74 @@ export async function POST(request: Request) {
       };
     });
 
-    const { error: insertError } = await supabase.from("bank_transactions").insert(transactionRows);
+    const { data: insertedTransactions, error: insertError } = await supabase
+      .from("bank_transactions")
+      .insert(transactionRows)
+      .select(
+        "id, batch_id, booking_date, amount, currency, payment_type, raw_label, normalized_label, entry_type, review_group, suggested_action, selected_action, transaction_kind, confidence_score, classification_source, review_reason, reporting_treatment, suggested_match_score, suggested_entry_id, selected_entry_id, applied_entry_id, raw_data, status"
+      );
 
     if (insertError) {
       throw new Error(insertError.message);
+    }
+
+    const insertedRows = (insertedTransactions ?? []) as Array<{
+      id: string;
+      batch_id: string;
+      booking_date: string | null;
+      amount: number;
+      currency: string;
+      payment_type: string;
+      raw_label: string;
+      normalized_label: string;
+      entry_type: EntryType;
+      review_group: BankImportReviewItem["reviewGroup"];
+      suggested_action: BankImportReviewItem["suggestedAction"];
+      selected_action: BankImportReviewItem["selectedAction"];
+      transaction_kind: BankTransactionKind;
+      confidence_score: number;
+      classification_source: "rule" | "history" | "match" | "manual" | null;
+      review_reason: string | null;
+      reporting_treatment: BankReportingTreatment;
+      suggested_match_score: number;
+      suggested_entry_id: string | null;
+      selected_entry_id: string | null;
+      applied_entry_id: string | null;
+      raw_data: { isOwnTransfer?: boolean; isReserved?: boolean };
+      status: "pending" | "applied" | "ignored" | "transfer" | "linked";
+    }>;
+
+    const suggestedLinks = buildSuggestedTransactionLinks(insertedRows.filter((row) => row.status === "pending"));
+
+    if (suggestedLinks.length > 0) {
+      const linkInserts = suggestedLinks.map((link) => ({
+        account_id: account.accountId,
+        batch_id: batch.id,
+        left_bank_transaction_id: link.leftTransactionId,
+        right_bank_transaction_id: link.rightTransactionId,
+        link_kind: link.linkKind,
+        confidence_score: link.confidenceScore,
+        status: "suggested" as const,
+        net_effect_direction: "net"
+      }));
+
+      const { error: linkInsertError } = await supabase.from("transaction_links").insert(linkInserts);
+      if (linkInsertError) {
+        throw new Error(linkInsertError.message);
+      }
+
+      const linkedIds = Array.from(
+        new Set(suggestedLinks.flatMap((link) => [link.leftTransactionId, link.rightTransactionId]))
+      );
+      const { error: treatmentError } = await supabase
+        .from("bank_transactions")
+        .update({ reporting_treatment: "offset_candidate" })
+        .eq("batch_id", batch.id)
+        .in("id", linkedIds);
+
+      if (treatmentError) {
+        throw new Error(treatmentError.message);
+      }
     }
 
     for (const candidate of autoApply) {
@@ -319,7 +408,9 @@ export async function POST(request: Request) {
         cat: resolveCategory(candidate.item.suggestion?.cat),
         workspaceId: normalizeWorkspaceId(
           candidate.item.suggestion?.workspaceId ?? importContext.defaultWorkspaceId
-        )
+        ),
+        transactionKind: candidate.item.transactionKind,
+        reportingTreatment: candidate.item.reportingTreatment
       });
     }
 

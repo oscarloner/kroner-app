@@ -26,6 +26,8 @@ type EntryRow = {
   date: string;
   link: string | null;
   note: string | null;
+  transaction_kind?: string | null;
+  reporting_treatment?: string | null;
   created_at: string;
 };
 
@@ -70,6 +72,8 @@ function mapEntry(row: EntryRow): Entry {
     date: row.date,
     link: row.link,
     note: row.note,
+    transactionKind: (row.transaction_kind as Entry["transactionKind"]) ?? null,
+    reportingTreatment: (row.reporting_treatment as Entry["reportingTreatment"]) ?? null,
     sourceKind: "entry",
     recurringType: null,
     projectedFromRecurringId: null,
@@ -146,12 +150,51 @@ function projectRecurringEntry(item: RecurringItem, monthKey: string): Entry {
     date,
     link: item.link,
     note: projectedLabel,
+    transactionKind: null,
+    reportingTreatment: "normal",
     sourceKind: "recurring",
     recurringType: item.type,
     projectedFromRecurringId: item.id,
     isProjected: true,
     createdAt: item.createdAt
   };
+}
+
+type EntryImportMetadataRow = {
+  applied_entry_id: string | null;
+  transaction_kind: Entry["transactionKind"];
+  reporting_treatment: Entry["reportingTreatment"];
+};
+
+function applyEntryImportMetadata(entries: Entry[], metadataRows: EntryImportMetadataRow[]) {
+  if (entries.length === 0 || metadataRows.length === 0) {
+    return entries;
+  }
+
+  const metadataMap = new Map(
+    metadataRows
+      .filter((row) => row.applied_entry_id)
+      .map((row) => [
+        row.applied_entry_id as string,
+        {
+          transactionKind: row.transaction_kind ?? null,
+          reportingTreatment: row.reporting_treatment ?? "normal"
+        }
+      ])
+  );
+
+  return entries.map((entry) => {
+    const metadata = metadataMap.get(entry.id);
+    if (!metadata) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      transactionKind: metadata.transactionKind,
+      reportingTreatment: metadata.reportingTreatment
+    };
+  });
 }
 
 export async function getDashboardData(
@@ -245,10 +288,29 @@ export async function getDashboardData(
     throw new Error(historicalEntriesRes.error.message);
   }
 
-  const actualMonthEntries = (monthEntriesRes.data ?? []).map(mapEntry);
-  const filteredEntries = includeHistoricalEntries
+  const monthEntryRows = (monthEntriesRes.data ?? []).map(mapEntry);
+  const historicalEntryRows = includeHistoricalEntries
     ? (historicalEntriesRes.data ?? []).map(mapEntry)
-    : actualMonthEntries;
+    : monthEntryRows;
+  const entryIds = Array.from(new Set(historicalEntryRows.map((entry) => entry.id)));
+  let importMetadataRows: EntryImportMetadataRow[] = [];
+
+  if (entryIds.length > 0) {
+    const metadataRes = await supabase
+      .from("bank_transactions")
+      .select("applied_entry_id, transaction_kind, reporting_treatment")
+      .eq("account_id", accountContext.currentAccount.id)
+      .in("applied_entry_id", entryIds);
+
+    if (metadataRes.error) {
+      throw new Error(metadataRes.error.message);
+    }
+
+    importMetadataRows = (metadataRes.data ?? []) as EntryImportMetadataRow[];
+  }
+
+  const actualMonthEntries = applyEntryImportMetadata(monthEntryRows, importMetadataRows);
+  const filteredEntries = applyEntryImportMetadata(historicalEntryRows, importMetadataRows);
   const filteredRecurringItems = (recurringRes.data ?? []).map(mapRecurring);
   const projectedMonthEntries = filteredRecurringItems
     .filter((item) => !isProjectedDuplicate(item, actualMonthEntries))

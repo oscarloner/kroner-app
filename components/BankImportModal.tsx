@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/components/kroner.module.css";
 import {
+  type BankTransactionKind,
+  type BankTransactionLinkStatus,
   type BankImportContext,
   CATEGORIES,
   type BankImportAction,
@@ -19,7 +21,24 @@ type DecisionState = {
   cat: string;
   workspaceId: string | null;
   matchEntryId: string | null;
+  transactionKind: BankTransactionKind;
 };
+
+const TRANSACTION_KIND_OPTIONS: Array<{ value: BankTransactionKind; label: string }> = [
+  { value: "vipps", label: "Vipps" },
+  { value: "bank_transfer", label: "Bankoverføring" },
+  { value: "subscription_expense", label: "Abonnement / fast utgift" },
+  { value: "subscription_income", label: "Fast inntekt" },
+  { value: "invoice_income", label: "Fakturainnbetaling" },
+  { value: "invoice_expense", label: "Fakturautbetaling" },
+  { value: "salary_or_fee", label: "Lønn / honorar" },
+  { value: "card_purchase", label: "Kortkjøp" },
+  { value: "other", label: "Annet" }
+];
+
+function transactionKindLabel(value: BankTransactionKind) {
+  return TRANSACTION_KIND_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -38,7 +57,8 @@ function defaultDecision(
       item.suggestedMatch?.workspaceId ??
       defaultWorkspaceId ??
       null,
-    matchEntryId: item.suggestedMatch?.entryId ?? null
+    matchEntryId: item.suggestedMatch?.entryId ?? null,
+    transactionKind: item.transactionKind
   };
 }
 
@@ -57,12 +77,13 @@ export function BankImportModal({
 }) {
   const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
   const defaultWorkspaceName =
-    workspaces.find((workspace) => workspace.id === defaultWorkspaceId)?.name ?? "Ukjent workspace";
+    workspaces.find((workspace) => workspace.id === defaultWorkspaceId)?.name ?? "Ukjent prosjekt";
   const [file, setFile] = useState<File | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [items, setItems] = useState<BankImportReviewItem[]>([]);
   const [summary, setSummary] = useState<BankImportReviewSummary | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
+  const [linkDecisions, setLinkDecisions] = useState<Record<string, BankTransactionLinkStatus>>({});
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(defaultWorkspaceId);
   const [reviewContext, setReviewContext] = useState<BankImportContext>({
     defaultWorkspaceId,
@@ -114,7 +135,7 @@ export function BankImportModal({
       json.importContext ?? {
         defaultWorkspaceId: selectedWorkspaceId || null,
         defaultWorkspaceName:
-          workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent workspace"
+          workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent prosjekt"
       }
     );
     setDecisions(
@@ -123,6 +144,13 @@ export function BankImportModal({
           item.id,
           defaultDecision(item, json.importContext?.defaultWorkspaceId ?? selectedWorkspaceId)
         ])
+      )
+    );
+    setLinkDecisions(
+      Object.fromEntries(
+        json.items
+          .flatMap((item) => item.linkSuggestions)
+          .map((link) => [link.id, link.status === "suggested" ? "confirmed" : link.status])
       )
     );
   }
@@ -134,7 +162,7 @@ export function BankImportModal({
     }
 
     if (!selectedWorkspaceId) {
-      setStatus("Velg workspace/konto for denne CSV-en først.");
+      setStatus("Velg prosjekt/selskap for denne CSV-en først.");
       return;
     }
 
@@ -165,7 +193,7 @@ export function BankImportModal({
         json.importContext ?? {
           defaultWorkspaceId: selectedWorkspaceId,
           defaultWorkspaceName:
-            workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent workspace"
+            workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent prosjekt"
         }
       );
       if (json.summary) {
@@ -176,6 +204,7 @@ export function BankImportModal({
       if (json.summary?.batchCompleted) {
         setItems([]);
         setDecisions({});
+        setLinkDecisions({});
         setStatus(
           `Import fullført. ${json.summary.autoAppliedCount} auto-importert, ${json.summary.ignoredCount} ignorert.`
         );
@@ -222,7 +251,18 @@ export function BankImportModal({
             type: decisions[item.id]?.type,
             cat: decisions[item.id]?.cat,
             workspaceId: decisions[item.id]?.workspaceId,
-            matchEntryId: decisions[item.id]?.matchEntryId
+            matchEntryId: decisions[item.id]?.matchEntryId,
+            transactionKind: decisions[item.id]?.transactionKind
+          })),
+          linkDecisions: Array.from(
+            new Map(
+              items
+                .flatMap((item) => item.linkSuggestions)
+                .map((link) => [link.id, linkDecisions[link.id] ?? link.status])
+            ).entries()
+          ).map(([linkId, status]) => ({
+            linkId,
+            status: status === "confirmed" ? "confirmed" : "rejected"
           }))
         })
       });
@@ -245,6 +285,7 @@ export function BankImportModal({
     setItems([]);
     setSummary(null);
     setDecisions({});
+    setLinkDecisions({});
     setSelectedWorkspaceId(defaultWorkspaceId);
     setReviewContext({
       defaultWorkspaceId,
@@ -285,7 +326,7 @@ export function BankImportModal({
         <div className={styles.modalTitle}>Nordea CSV-import</div>
 
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Denne CSV-en er betalt fra workspace/konto</label>
+          <label className={styles.fieldLabel}>Denne CSV-en hører til prosjekt/selskap</label>
           <select
             className={styles.select}
             disabled={busy || applying}
@@ -293,7 +334,7 @@ export function BankImportModal({
             value={selectedWorkspaceId}
           >
             <option value="" disabled>
-              Velg workspace
+              Velg prosjekt/selskap
             </option>
             {workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>
@@ -367,10 +408,14 @@ export function BankImportModal({
                       <span className={styles.txMetaItem}>{item.date || "Uten dato"}</span>
                       <span className={styles.txMetaItem}>{item.paymentType}</span>
                       <span className={styles.txMetaItem}>{item.reviewGroup}</span>
+                      <span className={styles.txMetaItem}>{transactionKindLabel(item.transactionKind)}</span>
+                      <span className={styles.txMetaItem}>{item.confidenceScore}% sikker</span>
                       {item.suggestedMatch ? (
                         <span className={styles.txMetaItem}>Match {item.suggestedMatch.score}</span>
                       ) : null}
                     </div>
+
+                    <div className={styles.bankImportHint}>{item.reviewReason}</div>
 
                     <div className={styles.fieldRow}>
                       <div className={styles.field}>
@@ -426,6 +471,24 @@ export function BankImportModal({
                     {decision.action === "import_new" ? (
                       <div className={styles.fieldRow}>
                         <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Transaksjonstype</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(item.id, {
+                                transactionKind: event.target.value as BankTransactionKind
+                              })
+                            }
+                            value={decision.transactionKind}
+                          >
+                            {TRANSACTION_KIND_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
                           <label className={styles.fieldLabel}>Kategori</label>
                           <select
                             className={styles.select}
@@ -458,6 +521,35 @@ export function BankImportModal({
                       </div>
                     ) : null}
 
+                    {item.linkSuggestions.length > 0 ? (
+                      <div className={styles.bankImportHint}>
+                        Relaterte transaksjoner / nulling:
+                        {item.linkSuggestions.map((link) => (
+                          <div key={link.id} className={styles.txMetaCompact}>
+                            <span className={styles.txMetaItem}>
+                              {link.linkKind === "vipps_offset" ? "Vipps mellomledd" : "Overføring"}
+                            </span>
+                            <span className={styles.txMetaItem}>
+                              {link.otherRawLabel} ({link.confidenceScore}%)
+                            </span>
+                            <select
+                              className={styles.select}
+                              onChange={(event) =>
+                                setLinkDecisions((current) => ({
+                                  ...current,
+                                  [link.id]: event.target.value as BankTransactionLinkStatus
+                                }))
+                              }
+                              value={linkDecisions[link.id] ?? link.status}
+                            >
+                              <option value="confirmed">Godkjenn nulling</option>
+                              <option value="rejected">Avvis nulling</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
                     {item.suggestedMatch ? (
                       <div className={styles.bankImportHint}>
                         Eksisterende forslag: {item.suggestedMatch.entryName} ({item.suggestedMatch.cat})
@@ -467,13 +559,14 @@ export function BankImportModal({
                       <div className={styles.bankImportHint}>
                         Læringsforslag: {item.suggestion.cat}
                         {item.suggestion.workspaceId
-                          ? ` · ${workspaces.find((workspace) => workspace.id === item.suggestion?.workspaceId)?.name ?? "Ukjent konto"}`
+                          ? ` · ${workspaces.find((workspace) => workspace.id === item.suggestion?.workspaceId)?.name ?? "Ukjent prosjekt"}`
                           : ""}
+                        {` · ${transactionKindLabel(item.suggestion.transactionKind)}`}
                       </div>
                     ) : null}
                     {reviewContext.defaultWorkspaceId ? (
                       <div className={styles.bankImportHint}>
-                        Betalt fra: {reviewContext.defaultWorkspaceName ?? "Ukjent workspace"}
+                        Prosjekt/selskap: {reviewContext.defaultWorkspaceName ?? "Ukjent prosjekt"}
                       </div>
                     ) : null}
                   </article>

@@ -90,6 +90,8 @@ alter table public.entries add column if not exists payment_type text;
 alter table public.entries add column if not exists import_batch_id uuid;
 alter table public.entries add column if not exists match_status text;
 alter table public.entries add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
+alter table public.entries add column if not exists transaction_kind text;
+alter table public.entries add column if not exists reporting_treatment text not null default 'normal';
 
 create table if not exists public.bank_import_batches (
   id uuid primary key default gen_random_uuid(),
@@ -126,6 +128,12 @@ create table if not exists public.bank_transactions (
   entry_type text not null check (entry_type in ('income', 'expense')),
   source_workspace_id uuid references public.workspaces(id) on delete set null,
   source_fingerprint text not null,
+  transaction_kind text not null default 'other',
+  confidence_score integer not null default 0,
+  classification_source text,
+  review_reason text,
+  project_workspace_id uuid references public.workspaces(id) on delete set null,
+  reporting_treatment text not null default 'normal',
   status text not null default 'pending' check (status in ('pending', 'applied', 'ignored', 'transfer', 'linked')),
   review_group text not null check (review_group in ('new', 'probable_match', 'transfer', 'ignored_candidate')),
   suggested_action text not null check (suggested_action in ('import_new', 'link_existing', 'ignore', 'mark_transfer')),
@@ -151,6 +159,8 @@ create table if not exists public.bank_learning_examples (
   cat text not null,
   workspace_id uuid references public.workspaces(id) on delete set null,
   source_workspace_id uuid references public.workspaces(id) on delete set null,
+  transaction_kind text not null default 'other',
+  reporting_treatment text not null default 'normal',
   entry_name text not null,
   usage_count integer not null default 1,
   last_confirmed_at timestamptz not null default now(),
@@ -158,11 +168,41 @@ create table if not exists public.bank_learning_examples (
   unique (account_id, normalized_label, payment_type, entry_type, cat, workspace_id)
 );
 
+create table if not exists public.transaction_links (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  batch_id uuid not null references public.bank_import_batches(id) on delete cascade,
+  left_bank_transaction_id uuid not null references public.bank_transactions(id) on delete cascade,
+  right_bank_transaction_id uuid not null references public.bank_transactions(id) on delete cascade,
+  link_kind text not null check (link_kind in ('vipps_offset', 'transfer_pair')),
+  confidence_score integer not null default 0,
+  status text not null default 'suggested' check (status in ('suggested', 'confirmed', 'rejected')),
+  net_effect_direction text,
+  created_at timestamptz not null default now(),
+  unique (batch_id, left_bank_transaction_id, right_bank_transaction_id, link_kind)
+);
+
 alter table public.bank_transactions
 add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
+alter table public.bank_transactions
+add column if not exists transaction_kind text not null default 'other';
+alter table public.bank_transactions
+add column if not exists confidence_score integer not null default 0;
+alter table public.bank_transactions
+add column if not exists classification_source text;
+alter table public.bank_transactions
+add column if not exists review_reason text;
+alter table public.bank_transactions
+add column if not exists project_workspace_id uuid references public.workspaces(id) on delete set null;
+alter table public.bank_transactions
+add column if not exists reporting_treatment text not null default 'normal';
 
 alter table public.bank_learning_examples
 add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
+alter table public.bank_learning_examples
+add column if not exists transaction_kind text not null default 'other';
+alter table public.bank_learning_examples
+add column if not exists reporting_treatment text not null default 'normal';
 
 do $$
 begin
@@ -273,6 +313,7 @@ alter table public.recurring_items enable row level security;
 alter table public.bank_import_batches enable row level security;
 alter table public.bank_transactions enable row level security;
 alter table public.bank_learning_examples enable row level security;
+alter table public.transaction_links enable row level security;
 
 create policy "Users read own profile"
 on public.profiles
@@ -379,6 +420,17 @@ using (private.is_account_member(account_id));
 
 create policy "Members manage bank learning examples"
 on public.bank_learning_examples
+for all
+using (private.is_account_member(account_id))
+with check (private.is_account_member(account_id));
+
+create policy "Members read transaction links"
+on public.transaction_links
+for select
+using (private.is_account_member(account_id));
+
+create policy "Members manage transaction links"
+on public.transaction_links
 for all
 using (private.is_account_member(account_id))
 with check (private.is_account_member(account_id));
