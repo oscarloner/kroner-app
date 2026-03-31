@@ -1,6 +1,9 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+type CookieMethods = NonNullable<Parameters<typeof createServerClient>[2]>["cookies"];
+type CookieToSet = Parameters<NonNullable<CookieMethods>["setAll"]>[0][number];
+
 export async function createClient() {
   const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,9 +18,9 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet: CookieToSet[]) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value, options }: CookieToSet) =>
             cookieStore.set(name, value, options)
           );
         } catch {

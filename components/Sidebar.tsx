@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { UrlObject } from "url";
 import { formatMonthLabel } from "@/lib/format";
 import styles from "@/components/kroner.module.css";
 
@@ -13,12 +14,17 @@ const NAV_ITEMS = [
   { href: "/graf", label: "Graf", icon: "↗" }
 ] as const;
 
-function withAccount(path: string, accountSlug?: string) {
-  if (!accountSlug) {
-    return path;
-  }
-
-  return `${path}?account=${encodeURIComponent(accountSlug)}`;
+function withAccount(path: string, accountSlug?: string): UrlObject {
+  return {
+    pathname: path,
+    ...(accountSlug
+      ? {
+          query: {
+            account: accountSlug
+          }
+        }
+      : {})
+  };
 }
 
 function cx(...values: Array<string | false | undefined>) {

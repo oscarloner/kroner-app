@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import type { UrlObject } from "url";
 import type { Workspace } from "@/lib/types";
 import styles from "@/components/kroner.module.css";
 
@@ -9,12 +10,14 @@ function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-function buildHref(path: string, accountSlug: string, workspaceId?: string) {
-  const params = new URLSearchParams({ account: accountSlug });
-  if (workspaceId && workspaceId !== "all") {
-    params.set("workspace", workspaceId);
-  }
-  return `${path}?${params.toString()}`;
+function buildHref(path: string, accountSlug: string, workspaceId?: string): UrlObject {
+  return {
+    pathname: path,
+    query: {
+      account: accountSlug,
+      ...(workspaceId && workspaceId !== "all" ? { workspace: workspaceId } : {})
+    }
+  };
 }
 
 export function Topbar({
