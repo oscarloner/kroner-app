@@ -222,9 +222,9 @@ export async function PATCH(request: Request) {
       note?: string;
     };
 
-    const targetIds = Array.from(new Set([id, ...(ids ?? [])].filter((value): value is string => Boolean(value))));
+    const bulkTargetIds = Array.from(new Set((ids ?? []).filter((value): value is string => Boolean(value))));
 
-    if (targetIds.length > 0) {
+    if (bulkTargetIds.length > 0) {
       if (kind !== "entry") {
         return NextResponse.json({ message: "Bulk update is only supported for entries." }, { status: 400 });
       }
@@ -245,13 +245,13 @@ export async function PATCH(request: Request) {
       const { data: rows, error: rowsError } = await supabase
         .from("entries")
         .select("id, account_id")
-        .in("id", targetIds);
+        .in("id", bulkTargetIds);
 
       if (rowsError) {
         throw rowsError;
       }
 
-      if (!rows || rows.length !== targetIds.length) {
+      if (!rows || rows.length !== bulkTargetIds.length) {
         return NextResponse.json({ message: "Not found." }, { status: 404 });
       }
 
@@ -277,7 +277,7 @@ export async function PATCH(request: Request) {
           cat: cat.trim(),
           workspace_id: workspaceId || null
         })
-        .in("id", targetIds);
+        .in("id", bulkTargetIds);
 
       if (error) {
         throw error;
