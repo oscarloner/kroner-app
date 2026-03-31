@@ -39,6 +39,7 @@ type RecurringRow = {
   cat: string;
   workspace_id: string | null;
   link: string | null;
+  day_of_month: number;
   created_at: string;
 };
 
@@ -67,6 +68,10 @@ function mapEntry(row: EntryRow): Entry {
     date: row.date,
     link: row.link,
     note: row.note,
+    sourceKind: "entry",
+    recurringType: null,
+    projectedFromRecurringId: null,
+    isProjected: false,
     createdAt: row.created_at
   };
 }
@@ -83,7 +88,43 @@ function mapRecurring(row: RecurringRow): RecurringItem {
     cat: row.cat,
     workspaceId: row.workspace_id,
     link: row.link,
+    dayOfMonth: row.day_of_month,
     createdAt: row.created_at
+  };
+}
+
+function clampRecurringDay(year: number, monthIndex: number, dayOfMonth: number) {
+  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
+  return Math.max(1, Math.min(dayOfMonth, maxDay));
+}
+
+function projectRecurringEntry(item: RecurringItem, monthKey: string): Entry {
+  const [yearValue, monthValue] = monthKey.split("-");
+  const year = Number(yearValue);
+  const monthIndex = Number(monthValue) - 1;
+  const day = clampRecurringDay(year, monthIndex, item.dayOfMonth || 1);
+  const date = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const type = item.type === "fixed" ? "income" : "expense";
+  const projectedLabel = item.type === "fixed" ? "Fast inntekt" : "Fast utgift";
+
+  return {
+    id: `recurring:${item.id}:${monthKey}`,
+    accountId: item.accountId,
+    createdBy: item.createdBy,
+    legacyId: item.legacyId,
+    name: item.name,
+    amount: item.amount,
+    type,
+    cat: item.cat,
+    workspaceId: item.workspaceId,
+    date,
+    link: item.link,
+    note: projectedLabel,
+    sourceKind: "recurring",
+    recurringType: item.type,
+    projectedFromRecurringId: item.id,
+    isProjected: true,
+    createdAt: item.createdAt
   };
 }
 
@@ -132,7 +173,7 @@ export async function getDashboardData(
   let recurringQuery = supabase
     .from("recurring_items")
     .select(
-      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, link, created_at"
+      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, link, day_of_month, created_at"
     )
     .eq("account_id", accountContext.currentAccount.id)
     .order("name");
@@ -178,11 +219,17 @@ export async function getDashboardData(
     throw new Error(historicalEntriesRes.error.message);
   }
 
-  const monthEntries = (monthEntriesRes.data ?? []).map(mapEntry);
+  const actualMonthEntries = (monthEntriesRes.data ?? []).map(mapEntry);
   const filteredEntries = includeHistoricalEntries
     ? (historicalEntriesRes.data ?? []).map(mapEntry)
-    : monthEntries;
+    : actualMonthEntries;
   const filteredRecurringItems = (recurringRes.data ?? []).map(mapRecurring);
+  const projectedMonthEntries = filteredRecurringItems.map((item) =>
+    projectRecurringEntry(item, selectedMonthKey)
+  );
+  const monthEntries = [...actualMonthEntries, ...projectedMonthEntries].sort(
+    (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()
+  );
 
   return {
     userEmail: accountContext.user.email ?? "",

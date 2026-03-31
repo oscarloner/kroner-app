@@ -1,5 +1,8 @@
 import { CATEGORIES, type AiSuggestion, type OcrSuggestion, type Workspace } from "@/lib/types";
 
+export const ANTHROPIC_MODEL =
+  process.env.ANTHROPIC_MODEL?.trim() || "claude-3-5-haiku-20241022";
+
 export type AiLearningExample = {
   name: string;
   type: "income" | "expense" | "sub" | "fixed";

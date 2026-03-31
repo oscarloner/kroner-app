@@ -25,7 +25,8 @@ export function RecurringItemsClient({
   recurringItems,
   workspaces,
   selectedMonthKey,
-  emptyLabel
+  emptyLabel,
+  recurringType
 }: {
   title: string;
   currentPath: string;
@@ -41,6 +42,7 @@ export function RecurringItemsClient({
   workspaces: Workspace[];
   selectedMonthKey: string;
   emptyLabel: string;
+  recurringType: "fixed" | "sub";
 }) {
   const [query, setQuery] = useState("");
 
@@ -55,7 +57,7 @@ export function RecurringItemsClient({
       !normalizedQuery ||
       [item.name, item.cat].some((part) => (part || "").toLowerCase().includes(normalizedQuery));
 
-    return matchesQuery && (item.type === "fixed" || item.type === "sub");
+    return matchesQuery && item.type === recurringType;
   });
 
   return (
@@ -66,11 +68,11 @@ export function RecurringItemsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            addLabel="+ Fast utgift"
-            allowedAddTypes={["fixed"]}
-            csvFilename="kroner-faste-utgifter.csv"
+            addLabel={recurringType === "fixed" ? "+ Fast inntekt" : "+ Fast utgift"}
+            allowedAddTypes={[recurringType]}
+            csvFilename={recurringType === "fixed" ? "kroner-faste-inntekter.csv" : "kroner-faste-utgifter.csv"}
             currentWorkspaceId={currentWorkspaceId}
-            defaultAddType="fixed"
+            defaultAddType={recurringType}
             entries={entries}
             recurringItems={recurringItems}
             workspaces={workspaces}

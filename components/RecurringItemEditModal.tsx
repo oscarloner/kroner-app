@@ -24,6 +24,7 @@ export function RecurringItemEditModal({
   const [cat, setCat] = useState(item.cat);
   const [workspaceId, setWorkspaceId] = useState(item.workspaceId ?? "");
   const [link, setLink] = useState(item.link ?? "");
+  const [dayOfMonth, setDayOfMonth] = useState(String(item.dayOfMonth));
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const prevOpen = useRef(false);
@@ -36,6 +37,7 @@ export function RecurringItemEditModal({
       setCat(item.cat);
       setWorkspaceId(item.workspaceId ?? "");
       setLink(item.link ?? "");
+      setDayOfMonth(String(item.dayOfMonth));
       setBusy(false);
       setStatus("");
     }
@@ -78,7 +80,8 @@ export function RecurringItemEditModal({
           amount: Number(amount),
           cat,
           workspaceId: workspaceId || null,
-          link
+          link,
+          dayOfMonth: Number(dayOfMonth)
         })
       });
 
@@ -108,7 +111,7 @@ export function RecurringItemEditModal({
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <div className={styles.modalTitle}>Rediger kostnad</div>
+        <div className={styles.modalTitle}>Rediger fast post</div>
 
         <form className={styles.modalForm} onSubmit={handleSubmit} ref={formRef}>
           <div className={styles.field}>
@@ -163,15 +166,28 @@ export function RecurringItemEditModal({
               </select>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Lenke</label>
+              <label className={styles.fieldLabel}>Dag i måneden</label>
               <input
                 className={styles.input}
-                onChange={(event) => setLink(event.target.value)}
-                placeholder="https://..."
-                type="url"
-                value={link}
+                max="31"
+                min="1"
+                onChange={(event) => setDayOfMonth(event.target.value)}
+                step="1"
+                type="number"
+                value={dayOfMonth}
               />
             </div>
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>Lenke</label>
+            <input
+              className={styles.input}
+              onChange={(event) => setLink(event.target.value)}
+              placeholder="https://..."
+              type="url"
+              value={link}
+            />
           </div>
 
           <div className={styles.modalActions}>

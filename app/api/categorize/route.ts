@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import {
+  ANTHROPIC_MODEL,
   type AiBankLearningExample,
   type AiLearningExample,
   buildCategorizeSystem,
@@ -139,7 +140,7 @@ export async function POST(request: Request) {
 
     const json = await callAnthropic({
       body: {
-        model: "claude-sonnet-4-20250514",
+        model: ANTHROPIC_MODEL,
         max_tokens: 120,
         system: buildCategorizeSystem(normalizedWorkspaces, relevantExamples, relevantBankExamples),
         messages: [{ role: "user", content: `Post: "${name}"` }]

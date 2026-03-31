@@ -60,17 +60,17 @@ export function OverviewClient({
   const filteredMonthEntries = monthEntries.filter((entry) => matches(entry));
 
   const filteredRecurring = recurringItems.filter((item) => matches(item));
-  const fixedExpenseItems = filteredRecurring.filter(
-    (item) => item.type === "fixed" || item.type === "sub"
-  );
-  const income = filteredMonthEntries
+  const fixedItems = filteredRecurring.filter((item) => item.type === "fixed");
+  const subscriptionItems = filteredRecurring.filter((item) => item.type === "sub");
+  const totalIncome = filteredMonthEntries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const expense = filteredMonthEntries
+  const totalExpense = filteredMonthEntries
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const fixedExpenses = fixedExpenseItems.reduce((sum, item) => sum + item.amount, 0);
-  const net = income - expense - fixedExpenses;
+  const fixed = fixedItems.reduce((sum, item) => sum + item.amount, 0);
+  const subscriptions = subscriptionItems.reduce((sum, item) => sum + item.amount, 0);
+  const net = totalIncome - totalExpense;
 
   return (
     <>
@@ -80,12 +80,12 @@ export function OverviewClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            allowedAddTypes={["income", "expense", "fixed"]}
+            allowedAddTypes={["income", "expense", "sub", "fixed"]}
             csvFilename={`kroner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="expense"
             entries={filteredMonthEntries}
-            recurringItems={recurringItems}
+            recurringItems={[]}
             workspaces={workspaces}
           />
         }
@@ -104,23 +104,28 @@ export function OverviewClient({
         <div className={styles.page}>
           <section className={styles.cards}>
             <article className={styles.card}>
-              <div className={styles.cardLabel}>Faste utgifter</div>
-              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(fixedExpenses)}</div>
-              <div className={styles.cardSub}>{fixedExpenseItems.length} poster</div>
+              <div className={styles.cardLabel}>Faste inntekter</div>
+              <div className={cx(styles.cardValue, styles.fixedValue)}>{formatCurrency(fixed)}</div>
+              <div className={styles.cardSub}>{fixedItems.length} kilder</div>
             </article>
             <article className={styles.card}>
-              <div className={styles.cardLabel}>Inntekter</div>
-              <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(income)}</div>
+              <div className={styles.cardLabel}>Inntekter totalt</div>
+              <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(totalIncome)}</div>
               <div className={styles.cardSub}>
                 {filteredMonthEntries.filter((entry) => entry.type === "income").length} poster
               </div>
             </article>
             <article className={styles.card}>
-              <div className={styles.cardLabel}>Utgifter</div>
-              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(expense)}</div>
+              <div className={styles.cardLabel}>Utgifter totalt</div>
+              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(totalExpense)}</div>
               <div className={styles.cardSub}>
                 {filteredMonthEntries.filter((entry) => entry.type === "expense").length} poster
               </div>
+            </article>
+            <article className={styles.card}>
+              <div className={styles.cardLabel}>Faste utgifter</div>
+              <div className={cx(styles.cardValue, styles.subValue)}>{formatCurrency(subscriptions)}</div>
+              <div className={styles.cardSub}>{subscriptionItems.length} aktive</div>
             </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Netto</div>
@@ -147,7 +152,7 @@ export function OverviewClient({
                 <EntryRow
                   key={entry.id}
                   deleteKind="entry"
-                  deletable
+                  deletable={!entry.isProjected}
                   entry={entry}
                   workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
                 />

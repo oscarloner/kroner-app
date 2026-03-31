@@ -489,7 +489,7 @@ async function callClaude(name){
   content.innerHTML='<div class="loading-dots"><span></span><span></span><span></span></div>';
   const data=load();
   try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:120,system:`Norsk økonomiassistent. Svar KUN med JSON. Eks: {"type":"expense","cat":"Programvare & verktøy","ws":"applaus"}. Type: income/expense/sub/fixed. Kategorier: ${CATS.join(', ')}. Kontoer: ${data.workspaces.map(w=>w.name+'('+w.id+')').join(', ')}.`,messages:[{role:'user',content:`Post: "${name}"`}]})});
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-3-5-haiku-20241022',max_tokens:120,system:`Norsk økonomiassistent. Svar KUN med JSON. Eks: {"type":"expense","cat":"Programvare & verktøy","ws":"applaus"}. Type: income/expense/sub/fixed. Kategorier: ${CATS.join(', ')}. Kontoer: ${data.workspaces.map(w=>w.name+'('+w.id+')').join(', ')}.`,messages:[{role:'user',content:`Post: "${name}"`}]})});
     const json=await res.json();
     let s;try{s=JSON.parse((json.content?.[0]?.text||'{}').replace(/```json|```/g,''));}catch(e){s={};}
     if(!s.type&&!s.cat){box.classList.remove('visible');return;}
@@ -524,7 +524,7 @@ async function handleImage(evt){
     document.getElementById('camera-result').style.display='none';
     try{
       const data=load();
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,system:`Norsk økonomiassistent. Les kvittering/faktura. Svar KUN med JSON: {"name":"...","amount":0,"date":"YYYY-MM-DD","cat":"...","type":"income eller expense","ws":"..."}. Kategorier: ${CATS.join(', ')}. Kontoer: ${data.workspaces.map(w=>w.name+'('+w.id+')').join(', ')}. Hvis ingenting, svar {}.`,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type,data:b64}},{type:'text',text:'Les kvitteringen.'}]}]})});
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-3-5-haiku-20241022',max_tokens:300,system:`Norsk økonomiassistent. Les kvittering/faktura. Svar KUN med JSON: {"name":"...","amount":0,"date":"YYYY-MM-DD","cat":"...","type":"income eller expense","ws":"..."}. Kategorier: ${CATS.join(', ')}. Kontoer: ${data.workspaces.map(w=>w.name+'('+w.id+')').join(', ')}. Hvis ingenting, svar {}.`,messages:[{role:'user',content:[{type:'image',source:{type:'base64',media_type:file.type,data:b64}},{type:'text',text:'Les kvitteringen.'}]}]})});
       const json=await res.json();
       let parsed;try{parsed=JSON.parse((json.content?.[0]?.text||'{}').replace(/```json|```/g,''));}catch(err){parsed={};}
       document.getElementById('camera-scanning').style.display='none';

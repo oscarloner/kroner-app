@@ -7,12 +7,21 @@ import type { AppAccount } from "@/lib/types";
 const NAV_ITEMS = [
   { href: "/", label: "Oversikt", icon: "◈" },
   { href: "/transaksjoner", label: "Transaksjoner", icon: "↕" },
-  { href: "/faste", label: "Faste utgifter", icon: "★" },
+  { href: "/faste", label: "Faste inntekter", icon: "★" },
+  { href: "/faste-utgifter", label: "Faste utgifter", icon: "↻" },
   { href: "/graf", label: "Graf", icon: "↗" }
 ] as const;
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function isActivePath(currentPath: string, itemHref: string) {
+  if (itemHref === "/") {
+    return currentPath === "/";
+  }
+
+  return currentPath === itemHref;
 }
 
 export function AppShell({
@@ -40,7 +49,7 @@ export function AppShell({
         {children}
         <nav className={styles.mobileBottomNav} aria-label="Primær navigasjon">
           {NAV_ITEMS.map((item) => {
-            const active = item.href === "/" ? currentPath === "/" : currentPath.startsWith(item.href);
+            const active = isActivePath(currentPath, item.href);
 
             return (
               <Link

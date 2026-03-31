@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       type,
       cat,
       workspaceId,
+      dayOfMonth,
       date,
       link,
       note
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
       type?: "income" | "expense" | "sub" | "fixed";
       cat?: string;
       workspaceId?: string;
+      dayOfMonth?: number;
       date?: string;
       link?: string;
       note?: string;
@@ -64,10 +66,20 @@ export async function POST(request: Request) {
     };
 
     if (type === "sub" || type === "fixed") {
+      if (
+        typeof dayOfMonth !== "number" ||
+        Number.isNaN(dayOfMonth) ||
+        dayOfMonth < 1 ||
+        dayOfMonth > 31
+      ) {
+        return NextResponse.json({ message: "Invalid recurring day." }, { status: 400 });
+      }
+
       const { error } = await supabase.from("recurring_items").insert({
         ...common,
         type,
-        link: link?.trim() || null
+        link: link?.trim() || null,
+        day_of_month: dayOfMonth
       });
 
       if (error) {
@@ -169,6 +181,7 @@ export async function PATCH(request: Request) {
       amount,
       cat,
       workspaceId,
+      dayOfMonth,
       date,
       link,
       note
@@ -179,6 +192,7 @@ export async function PATCH(request: Request) {
       amount?: number;
       cat?: string;
       workspaceId?: string | null;
+      dayOfMonth?: number;
       date?: string;
       link?: string;
       note?: string;
@@ -238,6 +252,7 @@ export async function PATCH(request: Request) {
       cat: string;
       workspace_id: string | null;
       link: string | null;
+      day_of_month?: number;
       date?: string;
       note?: string | null;
     } = {
@@ -255,6 +270,17 @@ export async function PATCH(request: Request) {
 
       updatePayload.date = date;
       updatePayload.note = note?.trim() || null;
+    } else {
+      if (
+        typeof dayOfMonth !== "number" ||
+        Number.isNaN(dayOfMonth) ||
+        dayOfMonth < 1 ||
+        dayOfMonth > 31
+      ) {
+        return NextResponse.json({ message: "Invalid recurring day." }, { status: 400 });
+      }
+
+      updatePayload.day_of_month = dayOfMonth;
     }
 
     const { error } = await supabase.from(table).update(updatePayload).eq("id", id);

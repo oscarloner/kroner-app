@@ -12,7 +12,7 @@ Appen er foreløpig én HTML-fil (`index.html`) med vanilla JS og localStorage. 
 
 - **Frontend:** Vanilla HTML/CSS/JS — én enkelt `index.html`
 - **Lagring:** `localStorage` (nøkkel: `oko5_entries`, `oko5_ws`, `oko5_subs`)
-- **AI:** Claude API direkte fra klienten (`claude-sonnet-4-20250514`)
+- **AI:** Claude API direkte fra klienten (`claude-3-5-haiku-20241022`)
 - **Deploy:** Vercel (statisk), GitHub repo
 
 ---
@@ -138,7 +138,7 @@ Annet
 Kalles når brukeren skriver inn navn i "Legg til"-modalen. Debounced 600ms.
 
 ```
-Model: claude-sonnet-4-20250514
+Model: claude-3-5-haiku-20241022
 System: Norsk økonomiassistent. Svar KUN med JSON.
         {"type":"expense","cat":"Programvare & verktøy","ws":"applaus"}
         Type: income/expense/sub/fixed
@@ -153,7 +153,7 @@ Bruker godkjenner eller avviser forslaget med ✓/✗-knapper.
 Kalles når bruker laster opp bilde av kvittering/faktura.
 
 ```
-Model: claude-sonnet-4-20250514
+Model: claude-3-5-haiku-20241022
 System: Samme som over, men returnerer også date og amount
 Input: image (base64) + tekst
 Output: {"name":"...","amount":0,"date":"YYYY-MM-DD","cat":"...","type":"...","ws":"..."}

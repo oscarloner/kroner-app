@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function SubscriptionsPage() {
-  redirect("/faste");
+  redirect("/faste-utgifter");
 }

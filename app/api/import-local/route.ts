@@ -76,7 +76,8 @@ export async function POST(request: Request) {
         type: item.type,
         cat: item.cat,
         workspace_id: workspaceMap.get(item.ws) ?? null,
-        link: item.link || null
+        link: item.link || null,
+        day_of_month: 1
       }));
 
     if (entryRows.length > 0) {

@@ -23,8 +23,14 @@ export function RecurringRow({
   deletable?: boolean;
 }) {
   const [editOpen, setEditOpen] = useState(false);
-  const typeLabel = item.type === "sub" || item.cat === "Abonnementer" ? "Abonnement" : "Fast utgift";
-  const typeClass = item.type === "sub" || item.cat === "Abonnementer" ? styles.typeSub : styles.typeFixed;
+  const isExpense = item.type === "sub";
+  const typeLabel = isExpense ? (item.cat === "Abonnementer" ? "Abonnement" : "Fast utgift") : "Fast inntekt";
+  const typeClass = isExpense
+    ? item.cat === "Abonnementer"
+      ? styles.typeSub
+      : styles.typeExpense
+    : styles.typeFixed;
+  const amountClass = isExpense ? styles.expenseValue : styles.fixedValue;
 
   return (
     <>
@@ -52,7 +58,9 @@ export function RecurringRow({
           />
           {workspace?.name ?? "Uten konto"}
         </div>
-        <div className={cx(styles.amount, styles.expenseValue)}>− {formatCurrency(item.amount)}</div>
+        <div className={cx(styles.amount, amountClass)}>
+          {isExpense ? "−" : "+"} {formatCurrency(item.amount)}
+        </div>
         <div className={styles.txActionCell}>
           <button className={styles.editButton} onClick={() => setEditOpen(true)} type="button">
             Rediger

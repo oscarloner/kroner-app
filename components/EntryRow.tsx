@@ -18,15 +18,41 @@ export function EntryRow({
   deletable?: boolean;
   deleteKind?: "entry" | "recurring";
 }) {
-  const typeClass = entry.type === "income" ? styles.typeIncome : styles.typeExpense;
-  const amountClass = entry.type === "income" ? styles.incomeValue : styles.expenseValue;
-  const typeLabel = entry.type === "income" ? "Inntekt" : "Utgift";
+  const isProjectedRecurring = entry.sourceKind === "recurring" || entry.isProjected;
+  const typeClass = isProjectedRecurring
+    ? entry.recurringType === "fixed"
+      ? styles.typeFixed
+      : styles.typeSub
+    : entry.type === "income"
+      ? styles.typeIncome
+      : styles.typeExpense;
+  const amountClass = isProjectedRecurring
+    ? entry.recurringType === "fixed"
+      ? styles.fixedValue
+      : styles.expenseValue
+    : entry.type === "income"
+      ? styles.incomeValue
+      : styles.expenseValue;
+  const typeLabel = isProjectedRecurring
+    ? entry.recurringType === "fixed"
+      ? "Fast inntekt"
+      : "Fast utgift"
+    : entry.type === "income"
+      ? "Inntekt"
+      : "Utgift";
+  const note =
+    entry.note ||
+    (isProjectedRecurring
+      ? entry.recurringType === "fixed"
+        ? "Planlagt fast inntekt"
+        : "Planlagt fast utgift"
+      : null);
 
   return (
     <div className={styles.txRow}>
       <div className={styles.txMainCell}>
         <div className={styles.txName}>{entry.name}</div>
-        {entry.note ? <div className={styles.txNote}>{entry.note}</div> : null}
+        {note ? <div className={styles.txNote}>{note}</div> : null}
         <div className={styles.txMetaCompact}>
           <span className={styles.txMetaItem}>{entry.date}</span>
           <span className={cx(styles.typeBadge, typeClass)}>{typeLabel}</span>
@@ -52,7 +78,11 @@ export function EntryRow({
         {entry.type === "income" ? "+" : "−"} {formatCurrency(entry.amount)}
       </div>
       <div className={styles.txActionCell}>
-        {deletable && deleteKind ? <DeleteItemButton id={entry.id} kind={deleteKind} /> : <div />}
+        {deletable && deleteKind && !isProjectedRecurring ? (
+          <DeleteItemButton id={entry.id} kind={deleteKind} />
+        ) : (
+          <div />
+        )}
       </div>
     </div>
   );

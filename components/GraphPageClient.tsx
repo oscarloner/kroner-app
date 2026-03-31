@@ -46,7 +46,7 @@ export function GraphPageClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            allowedAddTypes={["income", "expense", "fixed"]}
+            allowedAddTypes={["income", "expense", "sub", "fixed"]}
             csvFilename="kroner-graf.csv"
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="expense"

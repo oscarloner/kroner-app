@@ -98,12 +98,12 @@ export function TransactionsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            allowedAddTypes={["income", "expense", "fixed"]}
+            allowedAddTypes={["income", "expense", "sub", "fixed"]}
             csvFilename={`kroner-transaksjoner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="expense"
             entries={monthEntries}
-            recurringItems={recurringItems}
+            recurringItems={[]}
             workspaces={workspaces}
           />
         }
@@ -146,7 +146,7 @@ export function TransactionsClient({
               <EntryRow
                 key={entry.id}
                 deleteKind="entry"
-                deletable
+                deletable={!entry.isProjected}
                 entry={entry}
                 workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
               />

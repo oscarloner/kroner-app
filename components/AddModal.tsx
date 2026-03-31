@@ -58,6 +58,7 @@ export function AddModal({
   const [cat, setCat] = useState<string>(CATEGORIES[4]);
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dayOfMonth, setDayOfMonth] = useState("1");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
@@ -83,6 +84,7 @@ export function AddModal({
       setCat(prefill?.cat ?? CATEGORIES[4]);
       setWorkspaceId(resolveWorkspace(prefill?.ws) ?? defaultWorkspaceId);
       setDate(prefill?.date ?? new Date().toISOString().slice(0, 10));
+      setDayOfMonth("1");
       setStatus("");
       setSuggestion(null);
       setBusy(false);
@@ -171,6 +173,7 @@ export function AddModal({
           type,
           cat,
           workspaceId: workspaceId || null,
+          dayOfMonth: recurring ? Number(dayOfMonth) : undefined,
           date
         })
       });
@@ -194,7 +197,7 @@ export function AddModal({
   const typeOptions = [
     { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
     { value: "expense", label: "↓ Utgift", className: styles.typePillExpense },
-    { value: "sub", label: "↻ Abonnement", className: styles.typePillSub },
+    { value: "sub", label: "↻ Fast utgift", className: styles.typePillSub },
     { value: "fixed", label: "★ Fast inntekt", className: styles.typePillFixed }
   ].filter((item) => availableTypes.includes(item.value as AddType));
 
@@ -290,7 +293,20 @@ export function AddModal({
                   value={date}
                 />
               </div>
-            ) : null}
+            ) : (
+              <div className={styles.field}>
+                <label className={styles.fieldLabel}>Dag i måneden</label>
+                <input
+                  className={styles.input}
+                  max="31"
+                  min="1"
+                  onChange={(e) => setDayOfMonth(e.target.value)}
+                  step="1"
+                  type="number"
+                  value={dayOfMonth}
+                />
+              </div>
+            )}
           </div>
 
           <div className={styles.fieldRow}>
