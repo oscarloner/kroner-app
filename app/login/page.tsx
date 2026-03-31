@@ -1,4 +1,4 @@
-import { LoginClient } from "@/components/LoginClient";
+import { LoginForm } from "@/app/login/LoginForm";
 
 export default async function LoginPage({
   searchParams
@@ -9,5 +9,5 @@ export default async function LoginPage({
   const initialError =
     params?.error === "unauthorized" ? "Denne brukeren har ikke tilgang til appen." : "";
 
-  return <LoginClient initialError={initialError} nextPath={params?.next || "/"} />;
+  return <LoginForm initialError={initialError} nextPath={params?.next || "/"} />;
 }
