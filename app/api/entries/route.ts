@@ -113,6 +113,28 @@ export async function DELETE(request: Request) {
     }
 
     const table = kind === "entry" ? "entries" : "recurring_items";
+
+    const { data: row } = await supabase
+      .from(table)
+      .select("account_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (!row) {
+      return NextResponse.json({ message: "Not found." }, { status: 404 });
+    }
+
+    const { data: membership } = await supabase
+      .from("account_members")
+      .select("role")
+      .eq("account_id", row.account_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ message: "No access." }, { status: 403 });
+    }
+
     const { error } = await supabase.from(table).delete().eq("id", id);
 
     if (error) {

@@ -17,6 +17,13 @@ export function CsvExportButton({
   className?: string;
   label?: string;
 }) {
+  function csvCell(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    // Neutralise formula injection (=, +, -, @, tab, carriage-return as first char)
+    const safe = /^[=+\-@\t\r]/.test(escaped) ? `'${escaped}` : escaped;
+    return `"${safe}"`;
+  }
+
   function exportCsv() {
     const workspaceMap = Object.fromEntries(
       workspaces.map((workspace) => [workspace.id, workspace.name])
@@ -25,14 +32,14 @@ export function CsvExportButton({
 
     [...entries, ...recurringItems].forEach((item) => {
       rows.push([
-        `"${item.name || ""}"`,
+        csvCell(item.name || ""),
         String(item.amount || 0),
         item.type || "",
-        `"${item.cat || ""}"`,
-        `"${workspaceMap[item.workspaceId ?? ""] || ""}"`,
+        csvCell(item.cat || ""),
+        csvCell(workspaceMap[item.workspaceId ?? ""] || ""),
         "date" in item ? item.date || "" : "",
-        `"${"note" in item ? item.note || "" : ""}"`,
-        `"${item.link || ""}"`
+        csvCell("note" in item ? item.note || "" : ""),
+        csvCell(item.link || "")
       ]);
     });
 

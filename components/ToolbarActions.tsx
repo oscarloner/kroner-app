@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { AddModal } from "@/components/AddModal";
 import { CsvExportButton } from "@/components/CsvExportButton";
+import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
-import type { Entry, RecurringItem, Workspace } from "@/lib/types";
+import type { Entry, OcrSuggestion, RecurringItem, Workspace } from "@/lib/types";
 
 export function ToolbarActions({
   accountId,
@@ -21,11 +22,24 @@ export function ToolbarActions({
   recurringItems: RecurringItem[];
   csvFilename: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [prefill, setPrefill] = useState<OcrSuggestion | null>(null);
+
+  function handleScanApply(result: OcrSuggestion) {
+    setScanOpen(false);
+    setPrefill(result);
+    setAddOpen(true);
+  }
+
+  function handleAddClose() {
+    setAddOpen(false);
+    setPrefill(null);
+  }
 
   return (
     <>
-      <button className={styles.smallButton} onClick={() => setOpen(true)} type="button">
+      <button className={styles.smallButton} onClick={() => setScanOpen(true)} type="button">
         Scan
       </button>
       <CsvExportButton
@@ -36,14 +50,25 @@ export function ToolbarActions({
         recurringItems={recurringItems}
         workspaces={workspaces}
       />
-      <button className={styles.primaryButtonSmall} onClick={() => setOpen(true)} type="button">
+      <button
+        className={styles.primaryButtonSmall}
+        onClick={() => { setPrefill(null); setAddOpen(true); }}
+        type="button"
+      >
         + Legg til
       </button>
+      <ScanModal
+        accountId={accountId}
+        onApply={handleScanApply}
+        onClose={() => setScanOpen(false)}
+        open={scanOpen}
+      />
       <AddModal
         accountId={accountId}
         currentWorkspaceId={currentWorkspaceId}
-        onClose={() => setOpen(false)}
-        open={open}
+        onClose={handleAddClose}
+        open={addOpen}
+        prefill={prefill}
         workspaces={workspaces}
       />
     </>

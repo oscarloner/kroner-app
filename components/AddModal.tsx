@@ -2,18 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import styles from "@/components/kroner.module.css";
-import { CATEGORIES, type Workspace } from "@/lib/types";
+import { CATEGORIES, type OcrSuggestion, type Workspace } from "@/lib/types";
 
 type Suggestion = {
   type?: "income" | "expense" | "sub" | "fixed";
   cat?: string;
   ws?: string;
-};
-
-type OcrResult = Suggestion & {
-  name?: string;
-  amount?: number;
-  date?: string;
 };
 
 function cx(...values: Array<string | false | undefined>) {
@@ -25,21 +19,23 @@ export function AddModal({
   workspaces,
   currentWorkspaceId,
   open,
-  onClose
+  onClose,
+  prefill
 }: {
   accountId: string;
   workspaces: Workspace[];
   currentWorkspaceId: string;
   open: boolean;
   onClose: () => void;
+  prefill?: OcrSuggestion | null;
 }) {
+  const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
+
   const [type, setType] = useState<"income" | "expense" | "sub" | "fixed">("expense");
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [cat, setCat] = useState<string>(CATEGORIES[4]);
-  const [workspaceId, setWorkspaceId] = useState(
-    currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId
-  );
+  const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [link, setLink] = useState("");
   const [note, setNote] = useState("");
@@ -47,50 +43,38 @@ export function AddModal({
   const [status, setStatus] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
-  const [ocrBusy, setOcrBusy] = useState(false);
-  const [ocrPreview, setOcrPreview] = useState("");
-  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
   const aiTimeout = useRef<number | null>(null);
+  const prevOpen = useRef(false);
 
   function resolveWorkspace(raw?: string) {
-    if (!raw) {
-      return undefined;
-    }
-
-    return workspaces.find((workspace) => workspace.id === raw || workspace.legacyId === raw)?.id;
+    if (!raw) return undefined;
+    return workspaces.find((w) => w.id === raw || w.legacyId === raw)?.id;
   }
 
-  function applySuggestion(value: Suggestion | OcrResult) {
-    if (value.type) {
-      setType(value.type);
+  // Reset all fields (and apply prefill if any) each time the modal opens
+  useEffect(() => {
+    if (open && !prevOpen.current) {
+      setType(prefill?.type ?? "expense");
+      setName(prefill?.name ?? "");
+      setAmount(prefill?.amount != null ? String(prefill.amount) : "");
+      setCat(prefill?.cat ?? CATEGORIES[4]);
+      setWorkspaceId(resolveWorkspace(prefill?.ws) ?? defaultWorkspaceId);
+      setDate(prefill?.date ?? new Date().toISOString().slice(0, 10));
+      setLink("");
+      setNote("");
+      setStatus("");
+      setSuggestion(null);
+      setBusy(false);
+      setAiBusy(false);
     }
-    if (value.cat) {
-      setCat(value.cat);
-    }
-    const resolvedWorkspaceId = resolveWorkspace(value.ws);
-    if (resolvedWorkspaceId) {
-      setWorkspaceId(resolvedWorkspaceId);
-    }
-    if ("name" in value && value.name) {
-      setName(value.name);
-    }
-    if ("amount" in value && typeof value.amount === "number") {
-      setAmount(String(value.amount));
-    }
-    if ("date" in value && value.date) {
-      setDate(value.date);
-    }
-  }
+    prevOpen.current = open;
+  }, [open, prefill]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
+    if (!open) return;
 
     function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key === "Escape") onClose();
     }
 
     window.addEventListener("keydown", handleKey);
@@ -101,19 +85,14 @@ export function AddModal({
     if (name.trim().length < 3 || !open) {
       setSuggestion(null);
       setAiBusy(false);
-      if (aiTimeout.current) {
-        window.clearTimeout(aiTimeout.current);
-      }
+      if (aiTimeout.current) window.clearTimeout(aiTimeout.current);
       return;
     }
 
-    if (aiTimeout.current) {
-      window.clearTimeout(aiTimeout.current);
-    }
+    if (aiTimeout.current) window.clearTimeout(aiTimeout.current);
 
     aiTimeout.current = window.setTimeout(async () => {
       setAiBusy(true);
-
       try {
         const response = await fetch("/api/categorize", {
           method: "POST",
@@ -121,9 +100,7 @@ export function AddModal({
           body: JSON.stringify({ accountId, name })
         });
 
-        if (!response.ok) {
-          throw new Error();
-        }
+        if (!response.ok) throw new Error();
 
         const json = (await response.json()) as Suggestion;
         setSuggestion(!json.type && !json.cat && !json.ws ? null : json);
@@ -135,56 +112,15 @@ export function AddModal({
     }, 600);
 
     return () => {
-      if (aiTimeout.current) {
-        window.clearTimeout(aiTimeout.current);
-      }
+      if (aiTimeout.current) window.clearTimeout(aiTimeout.current);
     };
   }, [accountId, name, open]);
 
-  async function handleImage(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) {
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        return;
-      }
-
-      setOcrPreview(result);
-      setOcrBusy(true);
-      setOcrResult(null);
-      setStatus("");
-
-      try {
-        const response = await fetch("/api/ocr", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            accountId,
-            image: result.split(",")[1],
-            mediaType: file.type
-          })
-        });
-
-        const json = (await response.json()) as OcrResult & { message?: string };
-        if (!response.ok) {
-          throw new Error(json.message || "OCR feilet.");
-        }
-
-        setOcrResult(json);
-        applySuggestion(json);
-      } catch (error) {
-        setStatus(error instanceof Error ? error.message : "OCR feilet.");
-      } finally {
-        setOcrBusy(false);
-      }
-    };
-
-    reader.readAsDataURL(file);
+  function applySuggestion(value: Suggestion) {
+    if (value.type) setType(value.type);
+    if (value.cat) setCat(value.cat);
+    const resolvedId = resolveWorkspace(value.ws);
+    if (resolvedId) setWorkspaceId(resolvedId);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -210,9 +146,7 @@ export function AddModal({
       });
 
       const json = (await response.json()) as { message?: string };
-      if (!response.ok) {
-        throw new Error(json.message || "Kunne ikke lagre.");
-      }
+      if (!response.ok) throw new Error(json.message || "Kunne ikke lagre.");
 
       window.location.reload();
     } catch (error) {
@@ -221,18 +155,16 @@ export function AddModal({
     }
   }
 
-  if (!open) {
-    return null;
-  }
+  if (!open) return null;
 
   const recurring = type === "sub" || type === "fixed";
   const suggestionWorkspace = workspaces.find(
-    (workspace) => workspace.id === resolveWorkspace(suggestion?.ws)
+    (w) => w.id === resolveWorkspace(suggestion?.ws)
   );
 
   return (
     <div className={cx(styles.overlay, styles.overlayOpen)} onClick={onClose} role="presentation">
-      <div className={styles.modal} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <div className={styles.modalTitle}>Legg til transaksjon</div>
 
         <form onSubmit={handleSubmit}>
@@ -258,7 +190,7 @@ export function AddModal({
             <label className={styles.fieldLabel}>Navn</label>
             <input
               className={styles.input}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(e) => setName(e.target.value)}
               required
               value={name}
             />
@@ -293,41 +225,13 @@ export function AddModal({
             </div>
           ) : null}
 
-          <div className={styles.cameraWrap}>
-            <input
-              accept="image/*"
-              capture="environment"
-              className={styles.cameraInput}
-              onChange={handleImage}
-              type="file"
-            />
-            {ocrPreview ? <img alt="OCR preview" className={styles.cameraPreview} src={ocrPreview} /> : null}
-            <div className={styles.cameraLabel}>
-              {ocrBusy ? "Claude leser bildet..." : "Ta bilde av kvittering eller velg fra galleri"}
-            </div>
-          </div>
-
-          {ocrResult ? (
-            <div className={styles.aiBox}>
-              <div className={styles.aiBoxLabel}>Funnet i bildet</div>
-              <div className={styles.aiBoxRow}>
-                {ocrResult.name ? <span className={styles.aiChip}>{ocrResult.name}</span> : null}
-                {typeof ocrResult.amount === "number" ? (
-                  <span className={styles.aiChip}>{ocrResult.amount} kr</span>
-                ) : null}
-                {ocrResult.date ? <span className={styles.aiChip}>{ocrResult.date}</span> : null}
-                {ocrResult.cat ? <span className={styles.aiChip}>{ocrResult.cat}</span> : null}
-              </div>
-            </div>
-          ) : null}
-
           <div className={styles.fieldRow}>
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Beløp</label>
               <input
                 className={styles.input}
                 min="0"
-                onChange={(event) => setAmount(event.target.value)}
+                onChange={(e) => setAmount(e.target.value)}
                 required
                 step="0.01"
                 type="number"
@@ -339,7 +243,7 @@ export function AddModal({
                 <label className={styles.fieldLabel}>Dato</label>
                 <input
                   className={styles.input}
-                  onChange={(event) => setDate(event.target.value)}
+                  onChange={(e) => setDate(e.target.value)}
                   type="date"
                   value={date}
                 />
@@ -350,7 +254,7 @@ export function AddModal({
           <div className={styles.fieldRow}>
             <div className={styles.field}>
               <label className={styles.fieldLabel}>Kategori</label>
-              <select className={styles.select} onChange={(event) => setCat(event.target.value)} value={cat}>
+              <select className={styles.select} onChange={(e) => setCat(e.target.value)} value={cat}>
                 {CATEGORIES.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -362,12 +266,12 @@ export function AddModal({
               <label className={styles.fieldLabel}>Konto</label>
               <select
                 className={styles.select}
-                onChange={(event) => setWorkspaceId(event.target.value)}
+                onChange={(e) => setWorkspaceId(e.target.value)}
                 value={workspaceId}
               >
-                {workspaces.map((workspace) => (
-                  <option key={workspace.id} value={workspace.id}>
-                    {workspace.name}
+                {workspaces.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
                   </option>
                 ))}
               </select>
@@ -376,7 +280,7 @@ export function AddModal({
 
           <div className={styles.field}>
             <label className={styles.fieldLabel}>Lenke</label>
-            <input className={styles.input} onChange={(event) => setLink(event.target.value)} value={link} />
+            <input className={styles.input} onChange={(e) => setLink(e.target.value)} value={link} />
           </div>
 
           {!recurring ? (
@@ -384,7 +288,7 @@ export function AddModal({
               <label className={styles.fieldLabel}>Notat</label>
               <textarea
                 className={styles.textarea}
-                onChange={(event) => setNote(event.target.value)}
+                onChange={(e) => setNote(e.target.value)}
                 value={note}
               />
             </div>
