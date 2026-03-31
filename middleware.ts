@@ -1,39 +1,42 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-type CookieMethods = NonNullable<Parameters<typeof createServerClient>[2]>["cookies"];
-type CookieToSet = Parameters<NonNullable<CookieMethods>["setAll"]>[0][number];
-
 export async function middleware(request: NextRequest) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  try {
+    const supabase = createServerClient(url, anonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value }: CookieToSet) =>
-            request.cookies.set(name, value)
-          );
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }: CookieToSet) =>
+          cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
         }
       }
-    }
-  );
+    });
 
-  // Triggers token refresh and writes updated cookies to supabaseResponse
-  await supabase.auth.getUser();
+    await supabase.auth.getUser();
+  } catch {
+    // Do not break the request if session refresh fails
+  }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"]
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|manifest|txt)$).*)"
+  ]
 };
