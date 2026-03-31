@@ -1,8 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export const runtime = "nodejs";
-
 type CookieToSet = Parameters<
   NonNullable<NonNullable<Parameters<typeof createServerClient>[2]>["cookies"]>["setAll"]
 >[0][number];
