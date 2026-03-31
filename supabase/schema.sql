@@ -73,9 +73,13 @@ create table if not exists public.recurring_items (
   cat text not null,
   workspace_id uuid references public.workspaces(id) on delete set null,
   link text,
+  day_of_month integer not null default 1 check (day_of_month between 1 and 31),
   created_at timestamptz not null default now(),
   unique (account_id, legacy_id)
 );
+
+alter table public.recurring_items add column if not exists day_of_month integer not null default 1;
+update public.recurring_items set day_of_month = 1 where day_of_month is null;
 
 alter table public.entries add column if not exists source_type text;
 alter table public.entries add column if not exists source_name text;
@@ -93,9 +97,13 @@ create table if not exists public.bank_import_batches (
   provider text not null check (provider in ('nordea_csv')),
   source_name text not null,
   file_name text not null,
+  default_workspace_id uuid references public.workspaces(id) on delete set null,
   status text not null default 'parsed' check (status in ('parsed', 'applied', 'failed')),
   created_at timestamptz not null default now()
 );
+
+alter table public.bank_import_batches
+add column if not exists default_workspace_id uuid references public.workspaces(id) on delete set null;
 
 create table if not exists public.bank_transactions (
   id uuid primary key default gen_random_uuid(),

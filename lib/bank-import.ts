@@ -1,5 +1,6 @@
 import type {
   BankImportAction,
+  BankImportContext,
   BankImportReviewGroup,
   BankImportReviewItem,
   BankImportReviewSummary,
@@ -54,6 +55,14 @@ export type BankLearningExample = {
   workspaceId: string | null;
   usageCount: number;
 };
+
+function normalizeWorkspaceName(value: string | null | undefined) {
+  return normalizeNordeaLabel(value ?? "");
+}
+
+function isInvoiceIncomeWorkspace(value: string | null | undefined) {
+  return normalizeWorkspaceName(value).includes("APPLAUS CREATIVE");
+}
 
 const OWN_TRANSFER_NAMES = ["OSCAR LONE OLSEN"];
 const PERSON_REVIEW_PAYMENT_TYPES = new Set([
@@ -361,7 +370,8 @@ export function findProbableMatch(
 export function selectBankSuggestion(
   transaction: Pick<ParsedNordeaTransaction, "normalizedLabel" | "paymentType" | "entryType">,
   learningExamples: BankLearningExample[],
-  fallbackMatch?: BankMatchCandidate | null
+  fallbackMatch?: BankMatchCandidate | null,
+  importContext?: BankImportContext
 ): BankSuggestion | null {
   let bestScore = 0;
   let bestSuggestion: BankSuggestion | null = null;
@@ -389,14 +399,39 @@ export function selectBankSuggestion(
   }
 
   if (bestSuggestion && bestScore >= 70) {
+    if (importContext?.defaultWorkspaceId) {
+      return {
+        ...bestSuggestion,
+        workspaceId: importContext.defaultWorkspaceId
+      };
+    }
+
     return bestSuggestion;
+  }
+
+  if (importContext?.defaultWorkspaceId && isInvoiceIncomeWorkspace(importContext.defaultWorkspaceName)) {
+    if (transaction.entryType === "income") {
+      return {
+        type: "income",
+        cat: "Fakturainntekter",
+        workspaceId: importContext.defaultWorkspaceId
+      };
+    }
   }
 
   if (fallbackMatch) {
     return {
       type: fallbackMatch.type,
       cat: fallbackMatch.cat,
-      workspaceId: fallbackMatch.workspaceId
+      workspaceId: importContext?.defaultWorkspaceId ?? fallbackMatch.workspaceId
+    };
+  }
+
+  if (importContext?.defaultWorkspaceId) {
+    return {
+      type: transaction.entryType,
+      cat: "Annet",
+      workspaceId: importContext.defaultWorkspaceId
     };
   }
 

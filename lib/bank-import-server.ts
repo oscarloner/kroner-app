@@ -7,7 +7,13 @@ import {
   type ParsedNordeaTransaction
 } from "@/lib/bank-import";
 import { createClient } from "@/lib/supabase/server";
-import type { BankImportReviewItem, BankImportReviewSummary, EntryType } from "@/lib/types";
+import type {
+  BankImportContext,
+  BankImportReviewItem,
+  BankImportReviewSummary,
+  BankMatchCandidate,
+  EntryType
+} from "@/lib/types";
 
 type EntryRow = {
   id: string;
@@ -50,6 +56,27 @@ type LearningRow = {
   workspace_id: string | null;
   usage_count: number;
 };
+
+type BatchRow = {
+  id: string;
+  default_workspace_id: string | null;
+};
+
+type WorkspaceRow = {
+  id: string;
+  name: string;
+};
+
+function hasWorkspaceConflict(
+  suggestedMatch: BankMatchCandidate | null | undefined,
+  importContext: BankImportContext | undefined
+) {
+  if (!suggestedMatch?.workspaceId || !importContext?.defaultWorkspaceId) {
+    return false;
+  }
+
+  return suggestedMatch.workspaceId !== importContext.defaultWorkspaceId;
+}
 
 export async function fetchExistingEntryMatches(accountId: string) {
   const supabase = await createClient();
@@ -107,7 +134,8 @@ export async function fetchBankLearningExamples(accountId: string) {
 export function buildStoredReviewItems(
   rows: BankTransactionRow[],
   entries: ExistingEntryMatch[],
-  learningExamples: BankLearningExample[]
+  learningExamples: BankLearningExample[],
+  importContext?: BankImportContext
 ) {
   return rows.map<BankImportReviewItem>((row) => {
     const suggestedMatch = row.suggested_entry_id
@@ -144,7 +172,8 @@ export function buildStoredReviewItems(
         entryType: row.entry_type
       },
       learningExamples,
-      suggestedMatch
+      suggestedMatch,
+      importContext
     );
 
     return {
@@ -172,10 +201,12 @@ export function buildReviewItemsFromParsed(
   batchId: string,
   parsedRows: ParsedNordeaTransaction[],
   entries: ExistingEntryMatch[],
-  learningExamples: BankLearningExample[]
+  learningExamples: BankLearningExample[],
+  importContext?: BankImportContext
 ) {
   return parsedRows.map<BankImportReviewItem>((row) => {
     const suggestedMatch = !row.isReserved && !row.isOwnTransfer ? findProbableMatch(row, entries) : null;
+    const workspaceConflict = hasWorkspaceConflict(suggestedMatch, importContext);
     const reviewGroup =
       row.reviewGroup === "ignored_candidate"
         ? "ignored_candidate"
@@ -185,10 +216,10 @@ export function buildReviewItemsFromParsed(
     const suggestedAction =
       row.suggestedAction === "ignore"
         ? "ignore"
-        : suggestedMatch
+        : suggestedMatch && !workspaceConflict
           ? "link_existing"
           : row.suggestedAction;
-    const suggestion = selectBankSuggestion(row, learningExamples, suggestedMatch);
+    const suggestion = selectBankSuggestion(row, learningExamples, suggestedMatch, importContext);
 
     return {
       id: `${batchId}:${row.lineNumber}`,
@@ -213,6 +244,40 @@ export function buildReviewItemsFromParsed(
 
 export async function getBatchReview(batchId: string, accountId: string) {
   const supabase = await createClient();
+  const { data: batch, error: batchError } = await supabase
+    .from("bank_import_batches")
+    .select("id, default_workspace_id")
+    .eq("id", batchId)
+    .eq("account_id", accountId)
+    .single();
+
+  if (batchError || !batch) {
+    throw new Error(batchError?.message || "Could not load bank import batch.");
+  }
+
+  let importContext: BankImportContext = {
+    defaultWorkspaceId: (batch as BatchRow).default_workspace_id,
+    defaultWorkspaceName: null
+  };
+
+  if (importContext.defaultWorkspaceId) {
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .select("id, name")
+      .eq("account_id", accountId)
+      .eq("id", importContext.defaultWorkspaceId)
+      .maybeSingle();
+
+    if (workspaceError) {
+      throw new Error(workspaceError.message);
+    }
+
+    importContext = {
+      defaultWorkspaceId: importContext.defaultWorkspaceId,
+      defaultWorkspaceName: ((workspace ?? null) as WorkspaceRow | null)?.name ?? null
+    };
+  }
+
   const { data, error } = await supabase
     .from("bank_transactions")
     .select(
@@ -232,8 +297,14 @@ export async function getBatchReview(batchId: string, accountId: string) {
     fetchBankLearningExamples(accountId)
   ]);
 
-  const items = buildStoredReviewItems((data ?? []) as BankTransactionRow[], entries, learningExamples);
+  const items = buildStoredReviewItems(
+    (data ?? []) as BankTransactionRow[],
+    entries,
+    learningExamples,
+    importContext
+  );
   return {
+    importContext,
     items,
     summary: summarizeReviewItems(items)
   };

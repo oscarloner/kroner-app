@@ -34,6 +34,11 @@ type EntryRow = {
   note: string | null;
 };
 
+type BatchRow = {
+  id: string;
+  default_workspace_id: string | null;
+};
+
 function normalizeWorkspaceId(value: string | null | undefined) {
   return value || null;
 }
@@ -61,6 +66,17 @@ export async function POST(
 
     if (!decisions || decisions.length === 0) {
       return NextResponse.json({ message: "Missing decisions." }, { status: 400 });
+    }
+
+    const { data: batch, error: batchError } = await supabase
+      .from("bank_import_batches")
+      .select("id, default_workspace_id")
+      .eq("id", batchId)
+      .eq("account_id", account.accountId)
+      .single();
+
+    if (batchError || !batch) {
+      throw new Error(batchError?.message || "Could not load import batch.");
     }
 
     const { data: transactions, error: transactionError } = await supabase
@@ -207,7 +223,9 @@ export async function POST(
 
       const chosenType = decision.type ?? transaction.entry_type;
       const chosenCat = resolveCategory(decision.cat, "Annet");
-      const workspaceId = normalizeWorkspaceId(decision.workspaceId);
+      const workspaceId = normalizeWorkspaceId(
+        decision.workspaceId ?? ((batch as BatchRow).default_workspace_id ?? null)
+      );
       const { data: existingByFingerprint, error: existingError } = await supabase
         .from("entries")
         .select("id")

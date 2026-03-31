@@ -77,6 +77,10 @@ export type Entry = {
   paymentType?: string | null;
   importBatchId?: string | null;
   matchStatus?: "manual" | "linked" | "imported" | "ignored" | "transfer" | null;
+  sourceKind?: "entry" | "recurring";
+  recurringType?: RecurringType | null;
+  projectedFromRecurringId?: string | null;
+  isProjected?: boolean;
   createdAt: string;
 };
 
@@ -91,6 +95,7 @@ export type RecurringItem = {
   cat: string;
   workspaceId: string | null;
   link: string | null;
+  dayOfMonth: number;
   createdAt: string;
 };
 
@@ -155,6 +160,7 @@ export type BankImportBatch = {
   provider: BankProvider;
   sourceName: string;
   fileName: string;
+  defaultWorkspaceId: string | null;
   status: "parsed" | "applied" | "failed";
   createdAt: string;
 };
@@ -202,4 +208,9 @@ export type BankImportReviewSummary = {
   probableMatchCount: number;
   transferCount: number;
   ignoredCount: number;
+};
+
+export type BankImportContext = {
+  defaultWorkspaceId: string | null;
+  defaultWorkspaceName: string | null;
 };

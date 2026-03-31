@@ -13,6 +13,7 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const accountId = formData.get("accountId");
+    const workspaceId = formData.get("workspaceId");
     const file = formData.get("file");
 
     if (typeof accountId !== "string") {
@@ -21,6 +22,10 @@ export async function POST(request: Request) {
 
     if (!(file instanceof File)) {
       return NextResponse.json({ message: "Missing CSV file." }, { status: 400 });
+    }
+
+    if (typeof workspaceId !== "string" || workspaceId.length === 0) {
+      return NextResponse.json({ message: "Velg workspace for denne CSV-importen." }, { status: 400 });
     }
 
     const account = await requireAccountAccess(accountId);
@@ -32,6 +37,21 @@ export async function POST(request: Request) {
     }
 
     const supabase = await createClient();
+    const { data: workspace, error: workspaceError } = await supabase
+      .from("workspaces")
+      .select("id, name")
+      .eq("account_id", account.accountId)
+      .eq("id", workspaceId)
+      .maybeSingle();
+
+    if (workspaceError) {
+      throw new Error(workspaceError.message);
+    }
+
+    if (!workspace) {
+      return NextResponse.json({ message: "Ugyldig workspace for valgt konto." }, { status: 400 });
+    }
+
     const { data: batch, error: batchError } = await supabase
       .from("bank_import_batches")
       .insert({
@@ -40,9 +60,10 @@ export async function POST(request: Request) {
         provider: "nordea_csv",
         source_name: "Nordea",
         file_name: file.name,
+        default_workspace_id: workspace.id,
         status: "parsed"
       })
-      .select("id")
+      .select("id, default_workspace_id")
       .single();
 
     if (batchError || !batch) {
@@ -53,7 +74,17 @@ export async function POST(request: Request) {
       fetchExistingEntryMatches(account.accountId),
       fetchBankLearningExamples(account.accountId)
     ]);
-    const reviewItems = buildReviewItemsFromParsed(batch.id, parsedRows, entries, learningExamples);
+    const importContext = {
+      defaultWorkspaceId: workspace.id,
+      defaultWorkspaceName: workspace.name
+    };
+    const reviewItems = buildReviewItemsFromParsed(
+      batch.id,
+      parsedRows,
+      entries,
+      learningExamples,
+      importContext
+    );
     const rowMap = new Map(parsedRows.map((row) => [row.lineNumber, row]));
     const transactionRows = reviewItems.map((item) => {
       const lineNumber = Number(item.id.split(":")[1]);
@@ -97,6 +128,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       batchId: batch.id,
+      importContext,
       summary: summarizeParsedRows(reviewItems)
     });
   } catch (error) {

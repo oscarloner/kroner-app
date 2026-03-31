@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "@/components/kroner.module.css";
 import {
+  type BankImportContext,
   CATEGORIES,
   type BankImportAction,
   type BankImportReviewItem,
@@ -10,7 +11,7 @@ import {
   type EntryType,
   type Workspace
 } from "@/lib/types";
-import { formatCurrency, formatSignedCurrency } from "@/lib/format";
+import { formatSignedCurrency } from "@/lib/format";
 
 type DecisionState = {
   action: BankImportAction;
@@ -55,11 +56,18 @@ export function BankImportModal({
   workspaces: Workspace[];
 }) {
   const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
+  const defaultWorkspaceName =
+    workspaces.find((workspace) => workspace.id === defaultWorkspaceId)?.name ?? "Ukjent workspace";
   const [file, setFile] = useState<File | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
   const [items, setItems] = useState<BankImportReviewItem[]>([]);
   const [summary, setSummary] = useState<BankImportReviewSummary | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DecisionState>>({});
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(defaultWorkspaceId);
+  const [reviewContext, setReviewContext] = useState<BankImportContext>({
+    defaultWorkspaceId,
+    defaultWorkspaceName
+  });
   const [busy, setBusy] = useState(false);
   const [applying, setApplying] = useState(false);
   const [status, setStatus] = useState("");
@@ -70,6 +78,14 @@ export function BankImportModal({
       setStatus("");
     }
   }, [open]);
+
+  useEffect(() => {
+    setSelectedWorkspaceId(defaultWorkspaceId);
+    setReviewContext({
+      defaultWorkspaceId,
+      defaultWorkspaceName
+    });
+  }, [defaultWorkspaceId, defaultWorkspaceName]);
 
   const decisionCount = useMemo(
     () => Object.values(decisions).filter((decision) => decision.action !== "ignore").length,
@@ -84,6 +100,7 @@ export function BankImportModal({
       message?: string;
       items?: BankImportReviewItem[];
       summary?: BankImportReviewSummary;
+      importContext?: BankImportContext;
     };
 
     if (!response.ok || !json.items || !json.summary) {
@@ -93,9 +110,19 @@ export function BankImportModal({
     setBatchId(nextBatchId);
     setItems(json.items);
     setSummary(json.summary);
+    setReviewContext(
+      json.importContext ?? {
+        defaultWorkspaceId: selectedWorkspaceId || null,
+        defaultWorkspaceName:
+          workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent workspace"
+      }
+    );
     setDecisions(
       Object.fromEntries(
-        json.items.map((item) => [item.id, defaultDecision(item, defaultWorkspaceId)])
+        json.items.map((item) => [
+          item.id,
+          defaultDecision(item, json.importContext?.defaultWorkspaceId ?? selectedWorkspaceId)
+        ])
       )
     );
   }
@@ -106,12 +133,18 @@ export function BankImportModal({
       return;
     }
 
+    if (!selectedWorkspaceId) {
+      setStatus("Velg workspace/konto for denne CSV-en først.");
+      return;
+    }
+
     setBusy(true);
     setStatus("");
 
     try {
       const formData = new FormData();
       formData.set("accountId", accountId);
+      formData.set("workspaceId", selectedWorkspaceId);
       formData.set("file", file);
 
       const response = await fetch("/api/bank-import/parse", {
@@ -121,12 +154,19 @@ export function BankImportModal({
       const json = (await response.json()) as {
         message?: string;
         batchId?: string;
+        importContext?: BankImportContext;
       };
 
       if (!response.ok || !json.batchId) {
         throw new Error(json.message || "Kunne ikke parse CSV.");
       }
-
+      setReviewContext(
+        json.importContext ?? {
+          defaultWorkspaceId: selectedWorkspaceId,
+          defaultWorkspaceName:
+            workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent workspace"
+        }
+      );
       await loadReview(json.batchId);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Kunne ikke parse CSV.");
@@ -190,6 +230,11 @@ export function BankImportModal({
     setItems([]);
     setSummary(null);
     setDecisions({});
+    setSelectedWorkspaceId(defaultWorkspaceId);
+    setReviewContext({
+      defaultWorkspaceId,
+      defaultWorkspaceName
+    });
     setStatus("");
     setBusy(false);
     setApplying(false);
@@ -225,6 +270,25 @@ export function BankImportModal({
         <div className={styles.modalTitle}>Nordea CSV-import</div>
 
         <div className={styles.field}>
+          <label className={styles.fieldLabel}>Denne CSV-en hører til workspace/konto</label>
+          <select
+            className={styles.select}
+            disabled={busy || applying}
+            onChange={(event) => setSelectedWorkspaceId(event.target.value)}
+            value={selectedWorkspaceId}
+          >
+            <option value="" disabled>
+              Velg workspace
+            </option>
+            {workspaces.map((workspace) => (
+              <option key={workspace.id} value={workspace.id}>
+                {workspace.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.field}>
           <label className={styles.fieldLabel}>CSV-fil</label>
           <input
             className={styles.input}
@@ -254,6 +318,9 @@ export function BankImportModal({
 
         {summary ? (
           <div className={styles.bankImportStats}>
+            <div className={styles.aiChip}>
+              Workspace {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
+            </div>
             <div className={styles.aiChip}>Totalt {summary.total}</div>
             <div className={styles.aiChip}>Nye {summary.newCount}</div>
             <div className={styles.aiChip}>Match {summary.probableMatchCount}</div>
@@ -267,7 +334,9 @@ export function BankImportModal({
             <div className={styles.sectionDivider}>Review</div>
             <div className={styles.bankImportList}>
               {items.map((item) => {
-                const decision = decisions[item.id] ?? defaultDecision(item, defaultWorkspaceId);
+                const decision =
+                  decisions[item.id] ??
+                  defaultDecision(item, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId);
                 const workspaceId = decision.workspaceId ?? "";
                 return (
                   <article className={styles.bankImportCard} key={item.id}>
@@ -385,6 +454,11 @@ export function BankImportModal({
                         {item.suggestion.workspaceId
                           ? ` · ${workspaces.find((workspace) => workspace.id === item.suggestion?.workspaceId)?.name ?? "Ukjent konto"}`
                           : ""}
+                      </div>
+                    ) : null}
+                    {reviewContext.defaultWorkspaceId ? (
+                      <div className={styles.bankImportHint}>
+                        Import-workspace: {reviewContext.defaultWorkspaceName ?? "Ukjent workspace"}
                       </div>
                     ) : null}
                   </article>
