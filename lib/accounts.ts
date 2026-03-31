@@ -1,32 +1,24 @@
+import { getCurrentUser } from "@/lib/auth";
 import type { AccountMember, AccountRole, AppAccount } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
-
-type AccountRow = {
-  id: string;
-  slug: string;
-  name: string;
-  created_by: string;
-  created_at: string;
-};
 
 type MembershipRow = {
   account_id: string;
   user_id: string;
   role: AccountRole;
   created_at: string;
-};
-
-type ProfileRow = {
-  id: string;
-  email: string;
-  full_name: string | null;
+  accounts: Array<{
+    id: string;
+    slug: string;
+    name: string;
+    created_by: string;
+    created_at: string;
+  }>;
 };
 
 export async function getAccountContext(preferredSlug?: string) {
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
 
   if (!user) {
     throw new Error("Unauthorized.");
@@ -34,7 +26,9 @@ export async function getAccountContext(preferredSlug?: string) {
 
   const membershipsRes = await supabase
     .from("account_members")
-    .select("account_id, user_id, role, created_at")
+    .select(
+      "account_id, user_id, role, created_at, accounts!inner(id, slug, name, created_by, created_at)"
+    )
     .eq("user_id", user.id);
 
   if (membershipsRes.error) {
@@ -42,29 +36,21 @@ export async function getAccountContext(preferredSlug?: string) {
   }
 
   const memberships = (membershipsRes.data ?? []) as MembershipRow[];
-  const accountIds = memberships.map((membership) => membership.account_id);
-
-  if (accountIds.length === 0) {
+  if (memberships.length === 0) {
     throw new Error("User has no account memberships.");
   }
 
-  const accountsRes = await supabase
-    .from("accounts")
-    .select("id, slug, name, created_by, created_at")
-    .in("id", accountIds)
-    .order("created_at");
-
-  if (accountsRes.error) {
-    throw new Error(accountsRes.error.message);
-  }
-
-  const accounts: AppAccount[] = ((accountsRes.data ?? []) as AccountRow[]).map((account) => ({
-    id: account.id,
-    slug: account.slug,
-    name: account.name,
-    createdBy: account.created_by,
-    createdAt: account.created_at
-  }));
+  const accounts: AppAccount[] = memberships
+    .map((membership) => membership.accounts[0])
+    .filter(Boolean)
+    .sort((left, right) => left.created_at.localeCompare(right.created_at))
+    .map((account) => ({
+      id: account.id,
+      slug: account.slug,
+      name: account.name,
+      createdBy: account.created_by,
+      createdAt: account.created_at
+    }));
 
   const currentAccount =
     (preferredSlug ? accounts.find((account) => account.slug === preferredSlug) : undefined) ??
@@ -82,56 +68,18 @@ export async function getAccountContext(preferredSlug?: string) {
     throw new Error("Missing membership for selected account.");
   }
 
-  const membersRes = await supabase
-    .from("account_members")
-    .select("account_id, user_id, role, created_at")
-    .eq("account_id", currentAccount.id)
-    .order("created_at");
-
-  if (membersRes.error) {
-    throw new Error(membersRes.error.message);
-  }
-
-  const memberRows = (membersRes.data ?? []) as MembershipRow[];
-  const userIds = memberRows.map((member) => member.user_id);
-
-  const profilesRes = await supabase.from("profiles").select("id, email, full_name").in("id", userIds);
-
-  if (profilesRes.error) {
-    throw new Error(profilesRes.error.message);
-  }
-
-  const profiles = new Map(
-    ((profilesRes.data ?? []) as ProfileRow[]).map((profile) => [profile.id, profile])
-  );
-
-  const members: AccountMember[] = memberRows.map((member) => {
-    const profile = profiles.get(member.user_id);
-
-    return {
-      accountId: member.account_id,
-      userId: member.user_id,
-      email: profile?.email ?? "",
-      fullName: profile?.full_name ?? null,
-      role: member.role,
-      createdAt: member.created_at
-    };
-  });
-
   return {
     user,
     accounts,
     currentAccount,
     currentRole: currentMembership.role,
-    members
+    members: [] as AccountMember[]
   };
 }
 
 export async function requireAccountAccess(accountId?: string) {
+  const user = await getCurrentUser();
   const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
 
   if (!user) {
     throw new Error("Unauthorized.");

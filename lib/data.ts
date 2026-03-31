@@ -1,5 +1,4 @@
 import { getAccountContext } from "@/lib/accounts";
-import { requireUser } from "@/lib/auth";
 import type { DashboardData, Entry, RecurringItem, Workspace } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -91,7 +90,6 @@ export async function getDashboardData(
   accountSlug?: string,
   workspaceId?: string
 ): Promise<DashboardData> {
-  const user = await requireUser();
   const supabase = await createClient();
   const accountContext = await getAccountContext(accountSlug);
 
@@ -147,7 +145,7 @@ export async function getDashboardData(
     : (recurringRes.data ?? []).map(mapRecurring);
 
   return {
-    userEmail: user.email ?? "",
+    userEmail: accountContext.user.email ?? "",
     accounts: accountContext.accounts,
     currentAccount: accountContext.currentAccount,
     currentRole: accountContext.currentRole,

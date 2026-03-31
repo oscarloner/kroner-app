@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,21 +17,31 @@ function getAllowedEmails() {
 }
 
 export async function requireUser() {
-  const supabase = await createClient();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
+  assertAllowedUser(user.email ?? "");
+
+  return user;
+}
+
+export const getCurrentUser = cache(async () => {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  return user;
+});
+
+export function assertAllowedUser(email: string) {
   const allowedEmails = getAllowedEmails();
-  const userEmail = user.email?.toLowerCase() ?? "";
+  const userEmail = email.toLowerCase();
 
   if (allowedEmails && !allowedEmails.has(userEmail)) {
     redirect("/login?error=unauthorized");
   }
-
-  return user;
 }
