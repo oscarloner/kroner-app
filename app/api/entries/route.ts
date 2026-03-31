@@ -1,0 +1,131 @@
+import { NextResponse } from "next/server";
+import { requireAccountAccess } from "@/lib/accounts";
+import { createClient } from "@/lib/supabase/server";
+
+export async function POST(request: Request) {
+  try {
+    const {
+      accountId,
+      name,
+      amount,
+      type,
+      cat,
+      workspaceId,
+      date,
+      link,
+      note
+    } = (await request.json()) as {
+      accountId?: string;
+      name?: string;
+      amount?: number;
+      type?: "income" | "expense" | "sub" | "fixed";
+      cat?: string;
+      workspaceId?: string;
+      date?: string;
+      link?: string;
+      note?: string;
+    };
+
+    const account = await requireAccountAccess(accountId);
+
+    if (!name?.trim()) {
+      return NextResponse.json({ message: "Missing name." }, { status: 400 });
+    }
+
+    if (typeof amount !== "number" || Number.isNaN(amount) || amount <= 0) {
+      return NextResponse.json({ message: "Invalid amount." }, { status: 400 });
+    }
+
+    if (!cat?.trim()) {
+      return NextResponse.json({ message: "Missing category." }, { status: 400 });
+    }
+
+    if (!type) {
+      return NextResponse.json({ message: "Missing type." }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const common = {
+      account_id: account.accountId,
+      created_by: account.user.id,
+      name: name.trim(),
+      amount,
+      cat: cat.trim(),
+      workspace_id: workspaceId || null,
+      legacy_id: null
+    };
+
+    if (type === "sub" || type === "fixed") {
+      const { error } = await supabase.from("recurring_items").insert({
+        ...common,
+        type,
+        link: link?.trim() || null
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return NextResponse.json({ message: "Fast post lagret." });
+    }
+
+    const { error } = await supabase.from("entries").insert({
+      ...common,
+      type,
+      date: date || new Date().toISOString().slice(0, 10),
+      link: link?.trim() || null,
+      note: note?.trim() || null
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({ message: "Transaksjon lagret." });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message: error instanceof Error ? error.message : "Could not create entry."
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { id, kind } = (await request.json()) as {
+      id?: string;
+      kind?: "entry" | "recurring";
+    };
+
+    if (!id || !kind) {
+      return NextResponse.json({ message: "Missing id or kind." }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    const table = kind === "entry" ? "entries" : "recurring_items";
+    const { error } = await supabase.from(table).delete().eq("id", id);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({ message: "Slettet." });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        message: error instanceof Error ? error.message : "Could not delete entry."
+      },
+      { status: 500 }
+    );
+  }
+}

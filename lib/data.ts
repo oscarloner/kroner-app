@@ -1,0 +1,161 @@
+import { getAccountContext } from "@/lib/accounts";
+import { requireUser } from "@/lib/auth";
+import type { DashboardData, Entry, RecurringItem, Workspace } from "@/lib/types";
+import { createClient } from "@/lib/supabase/server";
+
+type WorkspaceRow = {
+  id: string;
+  account_id: string;
+  created_by: string;
+  legacy_id: string | null;
+  name: string;
+  color: string;
+};
+
+type EntryRow = {
+  id: string;
+  account_id: string;
+  created_by: string;
+  legacy_id: string | null;
+  name: string;
+  amount: number;
+  type: "income" | "expense";
+  cat: string;
+  workspace_id: string | null;
+  date: string;
+  link: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+type RecurringRow = {
+  id: string;
+  account_id: string;
+  created_by: string;
+  legacy_id: string | null;
+  name: string;
+  amount: number;
+  type: "sub" | "fixed";
+  cat: string;
+  workspace_id: string | null;
+  link: string | null;
+  created_at: string;
+};
+
+function mapWorkspace(row: WorkspaceRow): Workspace {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    createdBy: row.created_by,
+    legacyId: row.legacy_id,
+    name: row.name,
+    color: row.color
+  };
+}
+
+function mapEntry(row: EntryRow): Entry {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    createdBy: row.created_by,
+    legacyId: row.legacy_id,
+    name: row.name,
+    amount: Number(row.amount),
+    type: row.type,
+    cat: row.cat,
+    workspaceId: row.workspace_id,
+    date: row.date,
+    link: row.link,
+    note: row.note,
+    createdAt: row.created_at
+  };
+}
+
+function mapRecurring(row: RecurringRow): RecurringItem {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    createdBy: row.created_by,
+    legacyId: row.legacy_id,
+    name: row.name,
+    amount: Number(row.amount),
+    type: row.type,
+    cat: row.cat,
+    workspaceId: row.workspace_id,
+    link: row.link,
+    createdAt: row.created_at
+  };
+}
+
+export async function getDashboardData(
+  accountSlug?: string,
+  workspaceId?: string
+): Promise<DashboardData> {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const accountContext = await getAccountContext(accountSlug);
+
+  const [workspacesRes, entriesRes, recurringRes] = await Promise.all([
+    supabase
+      .from("workspaces")
+      .select("id, account_id, created_by, legacy_id, name, color")
+      .eq("account_id", accountContext.currentAccount.id)
+      .order("name"),
+    supabase
+      .from("entries")
+      .select(
+        "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, date, link, note, created_at"
+      )
+      .eq("account_id", accountContext.currentAccount.id)
+      .order("date", { ascending: false }),
+    supabase
+      .from("recurring_items")
+      .select(
+        "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, link, created_at"
+      )
+      .eq("account_id", accountContext.currentAccount.id)
+      .order("name")
+  ]);
+
+  if (workspacesRes.error) {
+    throw new Error(workspacesRes.error.message);
+  }
+
+  if (entriesRes.error) {
+    throw new Error(entriesRes.error.message);
+  }
+
+  if (recurringRes.error) {
+    throw new Error(recurringRes.error.message);
+  }
+
+  const workspaces = (workspacesRes.data ?? []).map(mapWorkspace);
+  const currentWorkspace =
+    workspaceId === "all"
+      ? null
+      : workspaces.find((workspace) => workspace.id === workspaceId) ?? workspaces[0] ?? null;
+  const currentWorkspaceId = currentWorkspace?.id ?? "all";
+  const filteredEntries = currentWorkspace
+    ? (entriesRes.data ?? [])
+        .map(mapEntry)
+        .filter((entry) => entry.workspaceId === currentWorkspace.id)
+    : (entriesRes.data ?? []).map(mapEntry);
+  const filteredRecurringItems = currentWorkspace
+    ? (recurringRes.data ?? [])
+        .map(mapRecurring)
+        .filter((item) => item.workspaceId === currentWorkspace.id)
+    : (recurringRes.data ?? []).map(mapRecurring);
+
+  return {
+    userEmail: user.email ?? "",
+    accounts: accountContext.accounts,
+    currentAccount: accountContext.currentAccount,
+    currentRole: accountContext.currentRole,
+    members: accountContext.members,
+    workspaces,
+    currentWorkspaceId,
+    currentWorkspace,
+    entries: filteredEntries,
+    recurringItems: filteredRecurringItems
+  };
+}

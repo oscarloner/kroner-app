@@ -1,0 +1,595 @@
+:root {
+  --bg: #f7f5f2;
+  --panel: #ffffff;
+  --panel-muted: #f0ede8;
+  --border: #e3dfd8;
+  --text: #1f1d1a;
+  --text-muted: #6d665d;
+  --income: #0f7b55;
+  --expense: #c9372c;
+  --fixed: #1d4ed8;
+  --brand: #0000cd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(180deg, #fcfbf8 0%, #f5f1ea 100%);
+  color: var(--text);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+code {
+  font-family: "JetBrains Mono", "SFMono-Regular", monospace;
+}
+
+.textAreaInput {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.appShell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: #fffdfa;
+  padding: 28px 20px;
+}
+
+.sidebarTop {
+  margin-bottom: 28px;
+}
+
+.brand {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.brandSub {
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.sidebarNav {
+  display: grid;
+  gap: 8px;
+}
+
+.navItem {
+  padding: 12px 14px;
+  border-radius: 12px;
+  color: var(--text-muted);
+  background: transparent;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.navItem:hover,
+.navItem.active {
+  background: var(--panel-muted);
+  color: var(--text);
+}
+
+.mainContent {
+  padding: 28px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.pageTitle {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.pageMeta,
+.mutedText,
+.statusText {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.accountName {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+}
+
+.sectionLabel {
+  margin-top: 18px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.switchList,
+.memberList {
+  display: grid;
+  gap: 10px;
+}
+
+.switchChip {
+  display: inline-flex;
+  width: fit-content;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--panel-muted);
+  color: var(--text);
+}
+
+.switchChip.active {
+  background: rgba(0, 0, 205, 0.1);
+  color: var(--brand);
+}
+
+.memberRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.memberRow:last-child {
+  border-bottom: none;
+}
+
+.headerBadge {
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 205, 0.08);
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cardGrid,
+.panelGrid,
+.subGrid,
+.chartGrid {
+  display: grid;
+  gap: 16px;
+}
+
+.cardGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.panelGrid,
+.chartGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.subGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summaryCard,
+.panel,
+.subCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 10px 30px rgba(24, 21, 18, 0.04);
+}
+
+.summaryLabel,
+.panelTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.summaryValue {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.summarySub {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.entryList {
+  display: grid;
+  gap: 10px;
+}
+
+.entryRow {
+  display: grid;
+  grid-template-columns: 1.5fr 120px 180px 120px 34px;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.entryRow:last-child {
+  border-bottom: none;
+}
+
+.entryName,
+.subCardName {
+  font-weight: 600;
+}
+
+.entrySub,
+.entryDate,
+.subCardCat,
+.subCardYear {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.workspaceChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--panel-muted);
+  font-size: 13px;
+}
+
+.workspaceDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.amountPositive {
+  color: var(--income);
+  font-weight: 700;
+}
+
+.amountNegative {
+  color: var(--expense);
+  font-weight: 700;
+}
+
+.amountFixed {
+  color: var(--fixed);
+  font-weight: 700;
+}
+
+.subCardTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.subCardYear {
+  margin-top: 6px;
+}
+
+.primaryButton {
+  border: 0;
+  border-radius: 12px;
+  background: var(--brand);
+  color: white;
+  padding: 12px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toolbarPanel {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.monthNav,
+.filterRow,
+.typeRow,
+.aiBoxRow,
+.aiActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbarButton,
+.filterChip,
+.typePill,
+.approveButton,
+.rejectButton,
+.ghostDeleteButton {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.toolbarButton:hover,
+.filterChip:hover,
+.typePill:hover,
+.approveButton:hover,
+.rejectButton:hover,
+.ghostDeleteButton:hover {
+  background: var(--panel-muted);
+}
+
+.filterChip.active,
+.typePill.active {
+  background: rgba(0, 0, 205, 0.08);
+  border-color: rgba(0, 0, 205, 0.2);
+  color: var(--brand);
+}
+
+.searchInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 14px;
+  background: #fff;
+  font: inherit;
+}
+
+.toolbarLabel {
+  min-width: 132px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.aiBox {
+  background: #fffbf0;
+  border: 1px solid #f0dfa0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.aiBoxLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9f6b00;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.aiChip {
+  font-size: 12px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.approveButton {
+  background: #e8f5f0;
+  color: var(--income);
+}
+
+.rejectButton {
+  background: #fdecea;
+  color: var(--expense);
+}
+
+.cameraWrap {
+  border: 2px dashed var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  background: linear-gradient(180deg, #fff 0%, #faf8f4 100%);
+  overflow: hidden;
+}
+
+.cameraInput {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cameraPreview {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: contain;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.cameraLabel {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ghostDeleteButton {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--expense);
+}
+
+.primaryButton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.statusText {
+  margin-top: 12px;
+}
+
+.emptyState {
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.barChart {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 220px;
+  align-items: end;
+}
+
+.barGroup {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.barStack {
+  height: 180px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+}
+
+.bar {
+  width: 16px;
+  min-height: 4px;
+  border-radius: 999px 999px 4px 4px;
+}
+
+.incomeBar {
+  background: #9ed1bd;
+}
+
+.expenseBar {
+  background: #efaaa5;
+}
+
+.barLabel {
+  text-transform: capitalize;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.categoryList {
+  display: grid;
+  gap: 10px;
+}
+
+.categoryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.categoryRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.loginShell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.loginCard {
+  width: min(100%, 420px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 24px;
+}
+
+.loginForm {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.textInput {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: white;
+  font: inherit;
+}
+
+@media (max-width: 960px) {
+  .appShell,
+  .panelGrid,
+  .chartGrid,
+  .subGrid,
+  .cardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .appShell {
+    display: block;
+  }
+
+  .entryRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .header {
+    flex-direction: column;
+  }
+
+  .toolbarPanel,
+  .fieldRow {
+    grid-template-columns: 1fr;
+  }
+}

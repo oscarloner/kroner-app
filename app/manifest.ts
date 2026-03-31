@@ -1,0 +1,28 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Kroner",
+    short_name: "Kroner",
+    description: "Personlig økonomi med workspaces",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#f7f5f2",
+    theme_color: "#0000cd",
+    lang: "no",
+    icons: [
+      {
+        src: "/appicon.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "maskable"
+      },
+      {
+        src: "/splashicon.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable"
+      }
+    ]
+  };
+}
