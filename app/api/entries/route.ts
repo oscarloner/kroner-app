@@ -52,7 +52,15 @@ export async function POST(request: Request) {
       amount,
       cat: type === "sub" ? "Abonnementer" : cat.trim(),
       workspace_id: workspaceId || null,
-      legacy_id: null
+      legacy_id: null,
+      source_type: "manual",
+      source_name: null,
+      source_transaction_id: null,
+      source_fingerprint: null,
+      raw_name: null,
+      payment_type: null,
+      import_batch_id: null,
+      match_status: "manual"
     };
 
     if (type === "sub" || type === "fixed") {

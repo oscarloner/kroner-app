@@ -7,6 +7,16 @@ export type AiLearningExample = {
   workspaceName?: string | null;
 };
 
+export type AiBankLearningExample = {
+  rawLabel: string;
+  normalizedLabel: string;
+  paymentType: string;
+  type: "income" | "expense";
+  cat: string;
+  workspaceName?: string | null;
+  usageCount?: number;
+};
+
 function extractJson(text: string) {
   return text.replace(/```json|```/g, "").trim();
 }
@@ -90,6 +100,34 @@ function scoreLearningExample(name: string, example: AiLearningExample) {
   return overlap * 20;
 }
 
+function scoreBankLearningExample(
+  rawName: string,
+  normalizedName: string | undefined,
+  paymentType: string | undefined,
+  example: AiBankLearningExample
+) {
+  const baseScore = Math.max(
+    scoreLearningExample(rawName, {
+      name: example.normalizedLabel || example.rawLabel,
+      type: example.type,
+      cat: example.cat,
+      workspaceName: example.workspaceName
+    }),
+    normalizedName
+      ? scoreLearningExample(normalizedName, {
+          name: example.normalizedLabel || example.rawLabel,
+          type: example.type,
+          cat: example.cat,
+          workspaceName: example.workspaceName
+        })
+      : 0
+  );
+  const paymentBonus =
+    paymentType && paymentType.toLowerCase() === example.paymentType.toLowerCase() ? 20 : 0;
+
+  return baseScore + paymentBonus + Math.min(15, (example.usageCount ?? 1) * 3);
+}
+
 export function selectRelevantLearningExamples(
   name: string,
   examples: AiLearningExample[],
@@ -97,6 +135,24 @@ export function selectRelevantLearningExamples(
 ) {
   return examples
     .map((example) => ({ example, score: scoreLearningExample(name, example) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.example);
+}
+
+export function selectRelevantBankLearningExamples(
+  rawName: string,
+  normalizedName: string | undefined,
+  paymentType: string | undefined,
+  examples: AiBankLearningExample[],
+  limit = 8
+) {
+  return examples
+    .map((example) => ({
+      example,
+      score: scoreBankLearningExample(rawName, normalizedName, paymentType, example)
+    }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, limit)
@@ -145,7 +201,22 @@ function buildLearningSection(lines: string[]) {
   ].join(" ");
 }
 
-export function buildCategorizeSystem(workspaces: Workspace[], learningExamples: AiLearningExample[] = []) {
+function buildBankLearningSection(lines: string[]) {
+  if (lines.length === 0) {
+    return "";
+  }
+
+  return [
+    "Prioriter bekreftede banktransaksjoner høyere enn generell historikk når tekst og betalingstype ligner.",
+    `Bekreftede bankeksempler: ${lines.join(" | ")}.`
+  ].join(" ");
+}
+
+export function buildCategorizeSystem(
+  workspaces: Workspace[],
+  learningExamples: AiLearningExample[] = [],
+  bankLearningExamples: AiBankLearningExample[] = []
+) {
   return [
     "Norsk økonomiassistent. Svar KUN med JSON.",
     'Eksempel: {"type":"expense","cat":"Programvare & verktøy","ws":"applaus"}',
@@ -158,6 +229,13 @@ export function buildCategorizeSystem(workspaces: Workspace[], learningExamples:
       learningExamples.map((example) => {
         const workspace = example.workspaceName ? `, konto=${example.workspaceName}` : "";
         return `${example.name} -> type=${example.type}, kategori=${example.cat}${workspace}`;
+      })
+    ),
+    buildBankLearningSection(
+      bankLearningExamples.map((example) => {
+        const workspace = example.workspaceName ? `, konto=${example.workspaceName}` : "";
+        const countLabel = example.usageCount && example.usageCount > 1 ? `, brukt ${example.usageCount} ganger` : "";
+        return `${example.rawLabel} [betalingstype=${example.paymentType}] -> type=${example.type}, kategori=${example.cat}${workspace}${countLabel}`;
       })
     )
   ].join(" ");

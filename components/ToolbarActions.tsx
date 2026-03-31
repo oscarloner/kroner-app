@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AddModal } from "@/components/AddModal";
+import { BankImportModal } from "@/components/BankImportModal";
 import { CsvExportButton } from "@/components/CsvExportButton";
 import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
@@ -36,6 +37,7 @@ export function ToolbarActions({
 }) {
   const [scanOpen, setScanOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [bankImportOpen, setBankImportOpen] = useState(false);
   const [prefill, setPrefill] = useState<OcrSuggestion | null>(null);
 
   function handleScanApply(result: OcrSuggestion) {
@@ -75,6 +77,13 @@ export function ToolbarActions({
         <button className={cx(styles.smallButton, styles.toolbarScanButton)} onClick={() => setScanOpen(true)} type="button">
           Scan
         </button>
+        <button
+          className={cx(styles.smallButton, styles.toolbarDesktopOnly)}
+          onClick={() => setBankImportOpen(true)}
+          type="button"
+        >
+          Importer bank
+        </button>
         <CsvExportButton
           className={cx(styles.smallButton, styles.toolbarDesktopOnly)}
           entries={entries}
@@ -99,6 +108,13 @@ export function ToolbarActions({
         onApply={handleScanApply}
         onClose={() => setScanOpen(false)}
         open={scanOpen}
+      />
+      <BankImportModal
+        accountId={accountId}
+        currentWorkspaceId={currentWorkspaceId}
+        onClose={() => setBankImportOpen(false)}
+        open={bankImportOpen}
+        workspaces={workspaces}
       />
       <AddModal
         accountId={accountId}

@@ -50,6 +50,14 @@ create table if not exists public.entries (
   date date not null,
   link text,
   note text,
+  source_type text,
+  source_name text,
+  source_transaction_id text,
+  source_fingerprint text,
+  raw_name text,
+  payment_type text,
+  import_batch_id uuid,
+  match_status text,
   created_at timestamptz not null default now(),
   unique (account_id, legacy_id)
 );
@@ -68,6 +76,90 @@ create table if not exists public.recurring_items (
   created_at timestamptz not null default now(),
   unique (account_id, legacy_id)
 );
+
+alter table public.entries add column if not exists source_type text;
+alter table public.entries add column if not exists source_name text;
+alter table public.entries add column if not exists source_transaction_id text;
+alter table public.entries add column if not exists source_fingerprint text;
+alter table public.entries add column if not exists raw_name text;
+alter table public.entries add column if not exists payment_type text;
+alter table public.entries add column if not exists import_batch_id uuid;
+alter table public.entries add column if not exists match_status text;
+
+create table if not exists public.bank_import_batches (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  created_by uuid not null references auth.users(id) on delete restrict,
+  provider text not null check (provider in ('nordea_csv')),
+  source_name text not null,
+  file_name text not null,
+  status text not null default 'parsed' check (status in ('parsed', 'applied', 'failed')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.bank_transactions (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references public.bank_import_batches(id) on delete cascade,
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  created_by uuid not null references auth.users(id) on delete restrict,
+  line_number integer not null,
+  booking_date date,
+  raw_booking_date text not null,
+  amount numeric(12, 2) not null,
+  currency text not null default 'NOK',
+  payment_type text not null,
+  sender text,
+  receiver text,
+  title text,
+  name text,
+  raw_label text not null,
+  normalized_label text not null,
+  entry_type text not null check (entry_type in ('income', 'expense')),
+  source_fingerprint text not null,
+  status text not null default 'pending' check (status in ('pending', 'applied', 'ignored', 'transfer', 'linked')),
+  review_group text not null check (review_group in ('new', 'probable_match', 'transfer', 'ignored_candidate')),
+  suggested_action text not null check (suggested_action in ('import_new', 'link_existing', 'ignore', 'mark_transfer')),
+  suggested_entry_id uuid references public.entries(id) on delete set null,
+  suggested_match_score integer not null default 0,
+  selected_action text check (selected_action in ('import_new', 'link_existing', 'ignore', 'mark_transfer')),
+  selected_entry_id uuid references public.entries(id) on delete set null,
+  applied_entry_id uuid references public.entries(id) on delete set null,
+  raw_data jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  unique (batch_id, line_number)
+);
+
+create table if not exists public.bank_learning_examples (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  created_by uuid not null references auth.users(id) on delete restrict,
+  source_name text not null default 'nordea_csv',
+  raw_label text not null,
+  normalized_label text not null,
+  payment_type text not null,
+  entry_type text not null check (entry_type in ('income', 'expense')),
+  cat text not null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
+  entry_name text not null,
+  usage_count integer not null default 1,
+  last_confirmed_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (account_id, normalized_label, payment_type, entry_type, cat, workspace_id)
+);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'entries_import_batch_id_fkey'
+  ) then
+    alter table public.entries
+      add constraint entries_import_batch_id_fkey
+      foreign key (import_batch_id) references public.bank_import_batches(id) on delete set null;
+  end if;
+end
+$$;
 
 create or replace function private.slugify(value text)
 returns text
@@ -161,6 +253,9 @@ alter table public.account_members enable row level security;
 alter table public.workspaces enable row level security;
 alter table public.entries enable row level security;
 alter table public.recurring_items enable row level security;
+alter table public.bank_import_batches enable row level security;
+alter table public.bank_transactions enable row level security;
+alter table public.bank_learning_examples enable row level security;
 
 create policy "Users read own profile"
 on public.profiles
@@ -234,6 +329,39 @@ using (private.is_account_member(account_id));
 
 create policy "Members manage recurring items"
 on public.recurring_items
+for all
+using (private.is_account_member(account_id))
+with check (private.is_account_member(account_id));
+
+create policy "Members read bank import batches"
+on public.bank_import_batches
+for select
+using (private.is_account_member(account_id));
+
+create policy "Members manage bank import batches"
+on public.bank_import_batches
+for all
+using (private.is_account_member(account_id))
+with check (private.is_account_member(account_id));
+
+create policy "Members read bank transactions"
+on public.bank_transactions
+for select
+using (private.is_account_member(account_id));
+
+create policy "Members manage bank transactions"
+on public.bank_transactions
+for all
+using (private.is_account_member(account_id))
+with check (private.is_account_member(account_id));
+
+create policy "Members read bank learning examples"
+on public.bank_learning_examples
+for select
+using (private.is_account_member(account_id));
+
+create policy "Members manage bank learning examples"
+on public.bank_learning_examples
 for all
 using (private.is_account_member(account_id))
 with check (private.is_account_member(account_id));

@@ -1271,6 +1271,67 @@
   font-size: 12px;
 }
 
+.bankImportModal {
+  max-width: 920px;
+}
+
+.bankImportSummaryRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.bankImportStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.bankImportList {
+  display: grid;
+  gap: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.bankImportCard {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--s1);
+  padding: 12px;
+}
+
+.bankImportCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.bankImportAmount {
+  white-space: nowrap;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bankImportMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.bankImportHint {
+  margin-top: 8px;
+  color: var(--text3);
+  font-size: 11px;
+}
+
 .loadingText {
   color: var(--sub);
   font-family: var(--font-mono);

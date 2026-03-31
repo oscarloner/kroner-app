@@ -69,6 +69,14 @@ export type Entry = {
   date: string;
   link: string | null;
   note: string | null;
+  sourceType?: "manual" | "nordea_csv" | null;
+  sourceName?: string | null;
+  sourceTransactionId?: string | null;
+  sourceFingerprint?: string | null;
+  rawName?: string | null;
+  paymentType?: string | null;
+  importBatchId?: string | null;
+  matchStatus?: "manual" | "linked" | "imported" | "ignored" | "transfer" | null;
   createdAt: string;
 };
 
@@ -136,4 +144,62 @@ export type OcrSuggestion = AiSuggestion & {
   name?: string;
   amount?: number;
   date?: string;
+};
+
+export type BankProvider = "nordea_csv";
+
+export type BankImportBatch = {
+  id: string;
+  accountId: string;
+  createdBy: string;
+  provider: BankProvider;
+  sourceName: string;
+  fileName: string;
+  status: "parsed" | "applied" | "failed";
+  createdAt: string;
+};
+
+export type BankImportAction = "import_new" | "link_existing" | "ignore" | "mark_transfer";
+export type BankImportReviewGroup = "new" | "probable_match" | "transfer" | "ignored_candidate";
+
+export type BankSuggestion = {
+  type: EntryType;
+  cat: string;
+  workspaceId: string | null;
+};
+
+export type BankMatchCandidate = {
+  entryId: string;
+  entryName: string;
+  score: number;
+  cat: string;
+  workspaceId: string | null;
+  type: EntryType;
+};
+
+export type BankImportReviewItem = {
+  id: string;
+  batchId: string;
+  date: string;
+  amount: number;
+  currency: string;
+  paymentType: string;
+  rawLabel: string;
+  normalizedLabel: string;
+  entryType: EntryType;
+  reviewGroup: BankImportReviewGroup;
+  suggestedAction: BankImportAction;
+  selectedAction: BankImportAction | null;
+  suggestedMatch: BankMatchCandidate | null;
+  suggestion: BankSuggestion | null;
+  isOwnTransfer: boolean;
+  isReserved: boolean;
+};
+
+export type BankImportReviewSummary = {
+  total: number;
+  newCount: number;
+  probableMatchCount: number;
+  transferCount: number;
+  ignoredCount: number;
 };

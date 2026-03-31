@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import {
+  type AiBankLearningExample,
   type AiLearningExample,
   buildCategorizeSystem,
   callAnthropic,
   normalizeCategorizeResponse,
   parseAiJson,
+  selectRelevantBankLearningExamples,
   selectRelevantLearningExamples
 } from "@/lib/anthropic";
 import { createClient } from "@/lib/supabase/server";
@@ -30,11 +32,37 @@ function toLearningExample(
   };
 }
 
+function toBankLearningExample(
+  row: {
+    raw_label: string;
+    normalized_label: string;
+    payment_type: string;
+    entry_type: "income" | "expense";
+    cat: string;
+    workspace_id: string | null;
+    usage_count: number;
+  },
+  workspaceNames: Map<string, string>
+): AiBankLearningExample {
+  return {
+    rawLabel: row.raw_label,
+    normalizedLabel: row.normalized_label,
+    paymentType: row.payment_type,
+    type: row.entry_type,
+    cat: row.cat,
+    workspaceName: row.workspace_id ? workspaceNames.get(row.workspace_id) ?? null : null,
+    usageCount: row.usage_count
+  };
+}
+
 export async function POST(request: Request) {
   try {
-    const { name, accountId } = (await request.json()) as {
+    const { name, accountId, rawName, normalizedName, paymentType } = (await request.json()) as {
       name?: string;
       accountId?: string;
+      rawName?: string;
+      normalizedName?: string;
+      paymentType?: string;
     };
 
     if (!name?.trim()) {
@@ -63,7 +91,7 @@ export async function POST(request: Request) {
     }));
     const workspaceNames = new Map(normalizedWorkspaces.map((workspace) => [workspace.id, workspace.name]));
 
-    const [entriesRes, recurringRes] = await Promise.all([
+    const [entriesRes, recurringRes, bankLearningRes] = await Promise.all([
       supabase
         .from("entries")
         .select("name, type, cat, workspace_id")
@@ -75,7 +103,13 @@ export async function POST(request: Request) {
         .select("name, type, cat, workspace_id")
         .eq("account_id", account.accountId)
         .order("created_at", { ascending: false })
-        .limit(100)
+        .limit(100),
+      supabase
+        .from("bank_learning_examples")
+        .select("raw_label, normalized_label, payment_type, entry_type, cat, workspace_id, usage_count")
+        .eq("account_id", account.accountId)
+        .order("usage_count", { ascending: false })
+        .limit(150)
     ]);
 
     if (entriesRes.error) {
@@ -86,17 +120,30 @@ export async function POST(request: Request) {
       throw recurringRes.error;
     }
 
+    if (bankLearningRes.error) {
+      throw bankLearningRes.error;
+    }
+
     const learningExamples: AiLearningExample[] = [
       ...(entriesRes.data ?? []).map((row) => toLearningExample(row, workspaceNames)),
       ...(recurringRes.data ?? []).map((row) => toLearningExample(row, workspaceNames))
     ];
     const relevantExamples = selectRelevantLearningExamples(name, learningExamples);
+    const bankLearningExamples: AiBankLearningExample[] = (bankLearningRes.data ?? []).map((row) =>
+      toBankLearningExample(row, workspaceNames)
+    );
+    const relevantBankExamples = selectRelevantBankLearningExamples(
+      rawName?.trim() || name,
+      normalizedName?.trim(),
+      paymentType?.trim(),
+      bankLearningExamples
+    );
 
     const json = await callAnthropic({
       body: {
         model: "claude-sonnet-4-20250514",
         max_tokens: 120,
-        system: buildCategorizeSystem(normalizedWorkspaces, relevantExamples),
+        system: buildCategorizeSystem(normalizedWorkspaces, relevantExamples, relevantBankExamples),
         messages: [{ role: "user", content: `Post: "${name}"` }]
       }
     });
