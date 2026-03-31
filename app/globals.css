@@ -34,10 +34,14 @@ body {
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   font-family: "Inter", sans-serif;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
 }
 
 a {
@@ -50,4 +54,10 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+@media (display-mode: standalone) {
+  body {
+    background: #f6f5f1;
+  }
 }

@@ -7,6 +7,10 @@ import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
 import type { Entry, OcrSuggestion, RecurringItem, Workspace } from "@/lib/types";
 
+function cx(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
 export function ToolbarActions({
   accountId,
   workspaces,
@@ -39,24 +43,29 @@ export function ToolbarActions({
 
   return (
     <>
-      <button className={styles.smallButton} onClick={() => setScanOpen(true)} type="button">
-        Scan
-      </button>
-      <CsvExportButton
-        className={styles.smallButton}
-        entries={entries}
-        filename={csvFilename}
-        label="↓ CSV"
-        recurringItems={recurringItems}
-        workspaces={workspaces}
-      />
-      <button
-        className={styles.primaryButtonSmall}
-        onClick={() => { setPrefill(null); setAddOpen(true); }}
-        type="button"
-      >
-        + Legg til
-      </button>
+      <div className={styles.toolbarActions}>
+        <button className={cx(styles.smallButton, styles.toolbarScanButton)} onClick={() => setScanOpen(true)} type="button">
+          Scan
+        </button>
+        <CsvExportButton
+          className={cx(styles.smallButton, styles.toolbarDesktopOnly)}
+          entries={entries}
+          filename={csvFilename}
+          label="↓ CSV"
+          recurringItems={recurringItems}
+          workspaces={workspaces}
+        />
+        <button
+          className={cx(styles.primaryButtonSmall, styles.toolbarAddButton)}
+          onClick={() => {
+            setPrefill(null);
+            setAddOpen(true);
+          }}
+          type="button"
+        >
+          + Legg til
+        </button>
+      </div>
       <ScanModal
         accountId={accountId}
         onApply={handleScanApply}

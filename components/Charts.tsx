@@ -1,15 +1,17 @@
 import styles from "@/components/kroner.module.css";
 import { formatCurrency } from "@/lib/format";
+import { parseMonthKey } from "@/lib/month";
 import type { Entry } from "@/lib/types";
 
-function getLastSixMonths() {
+function getLastSixMonths(selectedMonthKey: string) {
   const months: { key: string; label: string; month: number; year: number }[] = [];
-  const now = new Date();
+  const selected = parseMonthKey(selectedMonthKey);
+  const anchor = selected ? new Date(selected.year, selected.monthIndex, 1) : new Date();
 
   for (let index = 5; index >= 0; index -= 1) {
-    const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+    const date = new Date(anchor.getFullYear(), anchor.getMonth() - index, 1);
     months.push({
-      key: `${date.getFullYear()}-${date.getMonth() + 1}`,
+      key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`,
       label: date.toLocaleDateString("no-NO", { month: "short" }),
       month: date.getMonth(),
       year: date.getFullYear()
@@ -19,8 +21,14 @@ function getLastSixMonths() {
   return months;
 }
 
-export function Charts({ entries }: { entries: Entry[] }) {
-  const months = getLastSixMonths();
+export function Charts({
+  entries,
+  selectedMonthKey
+}: {
+  entries: Entry[];
+  selectedMonthKey: string;
+}) {
+  const months = getLastSixMonths(selectedMonthKey);
   const totals = months.map((month) => {
     const monthEntries = entries.filter((entry) => {
       const date = new Date(entry.date);
@@ -39,8 +47,9 @@ export function Charts({ entries }: { entries: Entry[] }) {
 
   const maxValue = Math.max(1, ...totals.flatMap((month) => [month.income, month.expense]));
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
+  const selected = parseMonthKey(selectedMonthKey);
+  const currentMonth = selected?.monthIndex ?? new Date().getMonth();
+  const currentYear = selected?.year ?? new Date().getFullYear();
   const categoryTotals = Object.entries(
     entries
       .filter((entry) => {

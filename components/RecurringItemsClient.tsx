@@ -5,19 +5,22 @@ import { SubCard } from "@/components/SubCard";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
-import type { Entry, RecurringItem, Workspace } from "@/lib/types";
+import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
 
 export function RecurringItemsClient({
   title,
   currentPath,
   accountId,
   accountSlug,
+  accounts,
+  currentAccountId,
   currentAccountName,
   currentWorkspaceId,
   currentWorkspaceName,
   entries,
   recurringItems,
   workspaces,
+  selectedMonthKey,
   type,
   emptyLabel
 }: {
@@ -25,12 +28,15 @@ export function RecurringItemsClient({
   currentPath: string;
   accountId: string;
   accountSlug: string;
+  accounts: AppAccount[];
+  currentAccountId: string;
   currentAccountName: string;
   currentWorkspaceId: string;
   currentWorkspaceName?: string;
   entries: Entry[];
   recurringItems: RecurringItem[];
   workspaces: Workspace[];
+  selectedMonthKey: string;
   type: "fixed" | "sub";
   emptyLabel: string;
 }) {
@@ -54,6 +60,7 @@ export function RecurringItemsClient({
     <>
       <Topbar
         accountSlug={accountSlug}
+        accounts={accounts}
         actions={
           <ToolbarActions
             accountId={accountId}
@@ -64,10 +71,12 @@ export function RecurringItemsClient({
             workspaces={workspaces}
           />
         }
+        currentAccountId={currentAccountId}
         currentAccountName={currentAccountName}
         currentPath={currentPath}
         currentWorkspaceId={currentWorkspaceId}
         currentWorkspaceName={currentWorkspaceName}
+        monthKey={selectedMonthKey}
         onSearchChange={setQuery}
         searchValue={query}
         title={title}

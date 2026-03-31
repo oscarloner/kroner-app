@@ -5,7 +5,7 @@ import { EntryRow } from "@/components/EntryRow";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
-import type { Entry, RecurringItem, Workspace } from "@/lib/types";
+import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
 
 const FILTERS = [
   { value: "all", label: "Alle" },
@@ -29,22 +29,30 @@ export function TransactionsClient({
   currentPath,
   accountId,
   accountSlug,
+  accounts,
+  currentAccountId,
   currentAccountName,
   currentWorkspaceId,
   currentWorkspaceName,
   entries,
+  monthEntries,
   recurringItems,
+  selectedMonthKey,
   workspaces
 }: {
   title: string;
   currentPath: string;
   accountId: string;
   accountSlug: string;
+  accounts: AppAccount[];
+  currentAccountId: string;
   currentAccountName: string;
   currentWorkspaceId: string;
   currentWorkspaceName?: string;
   entries: Entry[];
+  monthEntries: Entry[];
   recurringItems: RecurringItem[];
+  selectedMonthKey: string;
   workspaces: Workspace[];
 }) {
   const [query, setQuery] = useState("");
@@ -57,7 +65,7 @@ export function TransactionsClient({
 
   const filteredEntries = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return entries
+    return monthEntries
       .filter((entry) => {
         const matchesQuery =
           !normalizedQuery ||
@@ -80,26 +88,29 @@ export function TransactionsClient({
         return entry.cat === filter;
       })
       .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
-  }, [entries, query, filter]);
+  }, [monthEntries, query, filter]);
 
   return (
     <>
       <Topbar
         accountSlug={accountSlug}
+        accounts={accounts}
         actions={
           <ToolbarActions
             accountId={accountId}
-            csvFilename="kroner-transaksjoner.csv"
+            csvFilename={`kroner-transaksjoner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
-            entries={entries}
+            entries={monthEntries}
             recurringItems={recurringItems}
             workspaces={workspaces}
           />
         }
+        currentAccountId={currentAccountId}
         currentAccountName={currentAccountName}
         currentPath={currentPath}
         currentWorkspaceId={currentWorkspaceId}
         currentWorkspaceName={currentWorkspaceName}
+        monthKey={selectedMonthKey}
         onSearchChange={setQuery}
         searchValue={query}
         title={title}

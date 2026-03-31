@@ -1,4 +1,5 @@
 import { getAccountContext } from "@/lib/accounts";
+import { getCurrentMonthKey, getMonthBounds, parseMonthKey } from "@/lib/month";
 import type { DashboardData, Entry, RecurringItem, Workspace } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -88,10 +89,12 @@ function mapRecurring(row: RecurringRow): RecurringItem {
 
 export async function getDashboardData(
   accountSlug?: string,
-  workspaceId?: string
+  workspaceId?: string,
+  monthKey?: string
 ): Promise<DashboardData> {
   const supabase = await createClient();
   const accountContext = await getAccountContext(accountSlug);
+  const selectedMonthKey = parseMonthKey(monthKey)?.key ?? getCurrentMonthKey();
 
   const [workspacesRes, entriesRes, recurringRes] = await Promise.all([
     supabase
@@ -128,16 +131,21 @@ export async function getDashboardData(
   }
 
   const workspaces = (workspacesRes.data ?? []).map(mapWorkspace);
+  const monthBounds = getMonthBounds(selectedMonthKey);
+  const useAllWorkspaces = !workspaceId || workspaceId === "all";
   const currentWorkspace =
-    workspaceId === "all"
+    useAllWorkspaces
       ? null
-      : workspaces.find((workspace) => workspace.id === workspaceId) ?? workspaces[0] ?? null;
+      : workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
   const currentWorkspaceId = currentWorkspace?.id ?? "all";
   const filteredEntries = currentWorkspace
     ? (entriesRes.data ?? [])
         .map(mapEntry)
         .filter((entry) => entry.workspaceId === currentWorkspace.id)
     : (entriesRes.data ?? []).map(mapEntry);
+  const monthEntries = filteredEntries.filter(
+    (entry) => entry.date >= monthBounds.start && entry.date <= monthBounds.end
+  );
   const filteredRecurringItems = currentWorkspace
     ? (recurringRes.data ?? [])
         .map(mapRecurring)
@@ -154,6 +162,8 @@ export async function getDashboardData(
     currentWorkspaceId,
     currentWorkspace,
     entries: filteredEntries,
-    recurringItems: filteredRecurringItems
+    monthEntries,
+    recurringItems: filteredRecurringItems,
+    selectedMonthKey
   };
 }

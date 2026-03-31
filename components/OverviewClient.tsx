@@ -6,7 +6,7 @@ import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
 import { formatCurrency, formatSignedCurrency } from "@/lib/format";
-import type { Entry, RecurringItem, Workspace } from "@/lib/types";
+import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -17,22 +17,30 @@ export function OverviewClient({
   currentPath,
   accountId,
   accountSlug,
+  accounts,
+  currentAccountId,
   currentAccountName,
   currentWorkspaceId,
   currentWorkspaceName,
   entries,
+  monthEntries,
   recurringItems,
+  selectedMonthKey,
   workspaces
 }: {
   title: string;
   currentPath: string;
   accountId: string;
   accountSlug: string;
+  accounts: AppAccount[];
+  currentAccountId: string;
   currentAccountName: string;
   currentWorkspaceId: string;
   currentWorkspaceName?: string;
   entries: Entry[];
+  monthEntries: Entry[];
   recurringItems: RecurringItem[];
+  selectedMonthKey: string;
   workspaces: Workspace[];
 }) {
   const [query, setQuery] = useState("");
@@ -49,23 +57,15 @@ export function OverviewClient({
       (part || "").toLowerCase().includes(normalizedQuery)
     );
 
-  const monthDate = new Date();
-  const monthEntries = entries.filter((entry) => {
-    const date = new Date(entry.date);
-    return (
-      date.getMonth() === monthDate.getMonth() &&
-      date.getFullYear() === monthDate.getFullYear() &&
-      matches(entry)
-    );
-  });
+  const filteredMonthEntries = monthEntries.filter((entry) => matches(entry));
 
   const filteredRecurring = recurringItems.filter((item) => matches(item));
   const fixedItems = filteredRecurring.filter((item) => item.type === "fixed");
   const subscriptionItems = filteredRecurring.filter((item) => item.type === "sub");
-  const income = monthEntries
+  const income = filteredMonthEntries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const expense = monthEntries
+  const expense = filteredMonthEntries
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const fixed = fixedItems.reduce((sum, item) => sum + item.amount, 0);
@@ -76,20 +76,23 @@ export function OverviewClient({
     <>
       <Topbar
         accountSlug={accountSlug}
+        accounts={accounts}
         actions={
           <ToolbarActions
             accountId={accountId}
-            csvFilename={`kroner-${monthDate.getFullYear()}-${monthDate.getMonth() + 1}.csv`}
+            csvFilename={`kroner-${selectedMonthKey}.csv`}
             currentWorkspaceId={currentWorkspaceId}
-            entries={entries}
+            entries={filteredMonthEntries}
             recurringItems={recurringItems}
             workspaces={workspaces}
           />
         }
+        currentAccountId={currentAccountId}
         currentAccountName={currentAccountName}
         currentPath={currentPath}
         currentWorkspaceId={currentWorkspaceId}
         currentWorkspaceName={currentWorkspaceName}
+        monthKey={selectedMonthKey}
         onSearchChange={setQuery}
         searchValue={query}
         title={title}
@@ -107,14 +110,14 @@ export function OverviewClient({
               <div className={styles.cardLabel}>Engangs</div>
               <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(income)}</div>
               <div className={styles.cardSub}>
-                {monthEntries.filter((entry) => entry.type === "income").length} poster
+                {filteredMonthEntries.filter((entry) => entry.type === "income").length} poster
               </div>
             </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Utgifter</div>
               <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(expense)}</div>
               <div className={styles.cardSub}>
-                {monthEntries.filter((entry) => entry.type === "expense").length} poster
+                {filteredMonthEntries.filter((entry) => entry.type === "expense").length} poster
               </div>
             </article>
             <article className={styles.card}>
@@ -139,7 +142,7 @@ export function OverviewClient({
             <div className={styles.th} />
           </div>
           <div className={styles.entryList}>
-            {monthEntries
+            {filteredMonthEntries
               .slice()
               .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
               .slice(0, 8)
@@ -152,7 +155,7 @@ export function OverviewClient({
                   workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
                 />
               ))}
-            {monthEntries.length === 0 ? (
+            {filteredMonthEntries.length === 0 ? (
               <div className={styles.emptyState}>Ingen transaksjoner for valgt måned.</div>
             ) : null}
           </div>

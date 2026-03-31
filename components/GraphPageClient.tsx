@@ -5,29 +5,35 @@ import { Charts } from "@/components/Charts";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
-import type { Entry, RecurringItem, Workspace } from "@/lib/types";
+import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
 
 export function GraphPageClient({
   title,
   currentPath,
   accountId,
   accountSlug,
+  accounts,
+  currentAccountId,
   currentAccountName,
   currentWorkspaceId,
   currentWorkspaceName,
   entries,
   recurringItems,
+  selectedMonthKey,
   workspaces
 }: {
   title: string;
   currentPath: string;
   accountId: string;
   accountSlug: string;
+  accounts: AppAccount[];
+  currentAccountId: string;
   currentAccountName: string;
   currentWorkspaceId: string;
   currentWorkspaceName?: string;
   entries: Entry[];
   recurringItems: RecurringItem[];
+  selectedMonthKey: string;
   workspaces: Workspace[];
 }) {
   const [query, setQuery] = useState("");
@@ -36,6 +42,7 @@ export function GraphPageClient({
     <>
       <Topbar
         accountSlug={accountSlug}
+        accounts={accounts}
         actions={
           <ToolbarActions
             accountId={accountId}
@@ -46,10 +53,12 @@ export function GraphPageClient({
             workspaces={workspaces}
           />
         }
+        currentAccountId={currentAccountId}
         currentAccountName={currentAccountName}
         currentPath={currentPath}
         currentWorkspaceId={currentWorkspaceId}
         currentWorkspaceName={currentWorkspaceName}
+        monthKey={selectedMonthKey}
         onSearchChange={setQuery}
         searchValue={query}
         title={title}
@@ -57,7 +66,7 @@ export function GraphPageClient({
       />
       <div className={styles.content}>
         <div className={styles.page}>
-          <Charts entries={entries} />
+          <Charts entries={entries} selectedMonthKey={selectedMonthKey} />
         </div>
       </div>
     </>

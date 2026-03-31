@@ -24,9 +24,20 @@ export function EntryRow({
 
   return (
     <div className={styles.txRow}>
-      <div>
+      <div className={styles.txMainCell}>
         <div className={styles.txName}>{entry.name}</div>
         {entry.note ? <div className={styles.txNote}>{entry.note}</div> : null}
+        <div className={styles.txMetaCompact}>
+          <span className={styles.txMetaItem}>{entry.date}</span>
+          <span className={cx(styles.typeBadge, typeClass)}>{typeLabel}</span>
+          <span className={styles.workspaceBadge}>
+            <span
+              className={styles.workspaceBadgeDot}
+              style={{ backgroundColor: workspace?.color ?? "#787774" }}
+            />
+            {workspace?.name ?? "Uten konto"}
+          </span>
+        </div>
       </div>
       <div className={styles.txDate}>{entry.date}</div>
       <div className={cx(styles.typeBadge, typeClass)}>{typeLabel}</div>
@@ -40,7 +51,9 @@ export function EntryRow({
       <div className={cx(styles.amount, amountClass)}>
         {entry.type === "income" ? "+" : "−"} {formatCurrency(entry.amount)}
       </div>
-      {deletable && deleteKind ? <DeleteItemButton id={entry.id} kind={deleteKind} /> : <div />}
+      <div className={styles.txActionCell}>
+        {deletable && deleteKind ? <DeleteItemButton id={entry.id} kind={deleteKind} /> : <div />}
+      </div>
     </div>
   );
 }

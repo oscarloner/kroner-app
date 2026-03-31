@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import type { UrlObject } from "url";
 import { formatMonthLabel } from "@/lib/format";
+import { buildAppHref } from "@/lib/navigation";
+import { shiftMonthKey } from "@/lib/month";
 import styles from "@/components/kroner.module.css";
 
 const NAV_ITEMS = [
@@ -14,43 +14,29 @@ const NAV_ITEMS = [
   { href: "/graf", label: "Graf", icon: "↗" }
 ] as const;
 
-function withAccount(path: string, accountSlug?: string): UrlObject {
-  return {
-    pathname: path,
-    ...(accountSlug
-      ? {
-          query: {
-            account: accountSlug
-          }
-        }
-      : {})
-  };
-}
-
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-function shiftMonth(date: Date, direction: -1 | 1) {
-  return new Date(date.getFullYear(), date.getMonth() + direction, 1);
-}
-
 export function Sidebar({
   currentPath,
-  currentAccountSlug
+  currentAccountSlug,
+  currentWorkspaceId,
+  selectedMonthKey
 }: {
   currentPath: string;
   currentAccountSlug?: string;
+  currentWorkspaceId: string;
+  selectedMonthKey: string;
 }) {
-  const [monthCursor, setMonthCursor] = useState(
-    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-  );
+  const previousMonth = shiftMonthKey(selectedMonthKey, -1);
+  const nextMonth = shiftMonthKey(selectedMonthKey, 1);
 
   return (
     <aside className={styles.sidebar}>
       <div className={styles.sidebarTop}>
         <div className={styles.brand}>Kroner</div>
-        <div className={styles.brandSub}>{formatMonthLabel(monthCursor)}</div>
+        <div className={styles.brandSub}>{formatMonthLabel(selectedMonthKey)}</div>
       </div>
 
       <div className={styles.sidebarSection}>
@@ -63,7 +49,13 @@ export function Sidebar({
               <Link
                 key={item.href}
                 className={cx(styles.dropdownItem, active && styles.dropdownItemActive)}
-                href={withAccount(item.href, currentAccountSlug)}
+                href={
+                  buildAppHref(item.href, {
+                    accountSlug: currentAccountSlug,
+                    monthKey: selectedMonthKey,
+                    workspaceId: currentWorkspaceId
+                  }) as never
+                }
                 prefetch
               >
                 <span className={styles.navIcon}>{item.icon}</span>
@@ -76,21 +68,33 @@ export function Sidebar({
 
       <div className={styles.sidebarFooter}>
         <div className={styles.monthNav}>
-          <button
+          <Link
             className={styles.monthButton}
-            onClick={() => setMonthCursor((value) => shiftMonth(value, -1))}
-            type="button"
+            href={
+              buildAppHref(currentPath, {
+                accountSlug: currentAccountSlug,
+                monthKey: previousMonth,
+                workspaceId: currentWorkspaceId
+              }) as never
+            }
+            prefetch
           >
             ‹
-          </button>
-          <span className={styles.monthLabel}>{formatMonthLabel(monthCursor)}</span>
-          <button
+          </Link>
+          <span className={styles.monthLabel}>{formatMonthLabel(selectedMonthKey)}</span>
+          <Link
             className={styles.monthButton}
-            onClick={() => setMonthCursor((value) => shiftMonth(value, 1))}
-            type="button"
+            href={
+              buildAppHref(currentPath, {
+                accountSlug: currentAccountSlug,
+                monthKey: nextMonth,
+                workspaceId: currentWorkspaceId
+              }) as never
+            }
+            prefetch
           >
             ›
-          </button>
+          </Link>
         </div>
       </div>
     </aside>

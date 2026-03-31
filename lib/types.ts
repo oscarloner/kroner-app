@@ -96,7 +96,9 @@ export type DashboardData = {
   currentWorkspaceId: string;
   currentWorkspace: Workspace | null;
   entries: Entry[];
+  monthEntries: Entry[];
   recurringItems: RecurringItem[];
+  selectedMonthKey: string;
 };
 
 export type LegacyWorkspace = {
