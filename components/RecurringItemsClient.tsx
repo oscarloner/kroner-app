@@ -104,6 +104,7 @@ export function RecurringItemsClient({
                 deletable
                 item={item}
                 workspace={item.workspaceId ? workspaceMap.get(item.workspaceId) : undefined}
+                workspaces={workspaces}
               />
             ))}
           </div>
