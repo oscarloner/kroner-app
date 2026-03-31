@@ -2,7 +2,7 @@ import { CATEGORIES, type AiSuggestion, type OcrSuggestion, type Workspace } fro
 
 export type AiLearningExample = {
   name: string;
-  type: "income" | "expense" | "fixed";
+  type: "income" | "expense" | "sub" | "fixed";
   cat: string;
   workspaceName?: string | null;
 };
@@ -220,7 +220,7 @@ export function buildCategorizeSystem(
   return [
     "Norsk økonomiassistent. Svar KUN med JSON.",
     'Eksempel: {"type":"expense","cat":"Programvare & verktøy","ws":"applaus"}',
-    "Type: income/expense/fixed.",
+    "Type: income/expense/sub/fixed.",
     `Kategorier: ${CATEGORIES.join(", ")}.`,
     `Kontoer: ${workspaces
       .map((workspace) => `${workspace.name}(${workspace.legacyId ?? workspace.id})`)
@@ -244,7 +244,7 @@ export function buildCategorizeSystem(
 export function buildOcrSystem(workspaces: Workspace[], learningExamples: AiLearningExample[] = []) {
   return [
     "Norsk økonomiassistent. Les kvittering eller faktura. Svar KUN med JSON.",
-    '{"name":"...","amount":0,"date":"YYYY-MM-DD","cat":"...","type":"income eller expense","ws":"..."}',
+    '{"name":"...","amount":0,"date":"YYYY-MM-DD","cat":"...","type":"income eller expense eller sub eller fixed","ws":"..."}',
     `Kategorier: ${CATEGORIES.join(", ")}.`,
     `Kontoer: ${workspaces
       .map((workspace) => `${workspace.name}(${workspace.legacyId ?? workspace.id})`)
@@ -256,8 +256,8 @@ export function buildOcrSystem(workspaces: Workspace[], learningExamples: AiLear
 
 export function normalizeCategorizeResponse(value: AiSuggestion): AiSuggestion {
   return {
-    type: value.type === "sub" ? "fixed" : value.type,
-    cat: value.type === "sub" ? "Abonnementer" : value.cat,
+    type: value.type,
+    cat: value.cat,
     ws: value.ws
   };
 }
@@ -267,8 +267,8 @@ export function normalizeOcrResponse(value: OcrSuggestion): OcrSuggestion {
     name: value.name,
     amount: value.amount,
     date: value.date,
-    cat: value.type === "sub" ? "Abonnementer" : value.cat,
-    type: value.type === "sub" ? "fixed" : value.type,
+    cat: value.cat,
+    type: value.type,
     ws: value.ws
   };
 }

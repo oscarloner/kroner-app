@@ -32,7 +32,7 @@ export function SubCard({
           {workspace?.name ?? "Uten konto"}
         </div>
       </div>
-      <div className={cx(styles.subCardAmount, styles.expenseValue)}>
+      <div className={cx(styles.subCardAmount, item.type === "fixed" ? styles.fixedValue : styles.expenseValue)}>
         {formatCurrency(item.amount)}
       </div>
       <div className={styles.subCardSub}>{formatCurrency(item.amount * 12)} / år</div>

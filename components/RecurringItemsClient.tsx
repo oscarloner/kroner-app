@@ -1,11 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SubCard } from "@/components/SubCard";
+import { RecurringRow } from "@/components/RecurringRow";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
 import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
+
+function cx(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
 
 export function RecurringItemsClient({
   title,
@@ -21,8 +25,7 @@ export function RecurringItemsClient({
   recurringItems,
   workspaces,
   selectedMonthKey,
-  emptyLabel,
-  categoryFilter
+  emptyLabel
 }: {
   title: string;
   currentPath: string;
@@ -38,7 +41,6 @@ export function RecurringItemsClient({
   workspaces: Workspace[];
   selectedMonthKey: string;
   emptyLabel: string;
-  categoryFilter?: string;
 }) {
   const [query, setQuery] = useState("");
 
@@ -52,9 +54,8 @@ export function RecurringItemsClient({
     const matchesQuery =
       !normalizedQuery ||
       [item.name, item.cat].some((part) => (part || "").toLowerCase().includes(normalizedQuery));
-    const matchesCategory = !categoryFilter || item.cat === categoryFilter;
 
-    return matchesQuery && item.type === "fixed" && matchesCategory;
+    return matchesQuery && (item.type === "fixed" || item.type === "sub");
   });
 
   return (
@@ -65,9 +66,9 @@ export function RecurringItemsClient({
         actions={
           <ToolbarActions
             accountId={accountId}
-            addLabel={categoryFilter ? "+ Fast utgift" : "+ Fast utgift"}
+            addLabel="+ Fast utgift"
             allowedAddTypes={["fixed"]}
-            csvFilename={`kroner-faste-utgifter${categoryFilter ? "-abonnementer" : ""}.csv`}
+            csvFilename="kroner-faste-utgifter.csv"
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="fixed"
             entries={entries}
@@ -88,16 +89,24 @@ export function RecurringItemsClient({
       />
       <div className={styles.content}>
         <div className={styles.page}>
-          <section className={styles.subGrid}>
+          <div className={styles.tableHeader}>
+            <div className={styles.th}>Navn</div>
+            <div className={styles.th}>Type</div>
+            <div className={styles.th}>Kategori</div>
+            <div className={styles.th}>Konto</div>
+            <div className={cx(styles.th, styles.thRight)}>Beløp</div>
+            <div className={styles.th} />
+          </div>
+          <div className={styles.entryList}>
             {filteredItems.map((item) => (
-              <SubCard
+              <RecurringRow
                 key={item.id}
                 deletable
                 item={item}
                 workspace={item.workspaceId ? workspaceMap.get(item.workspaceId) : undefined}
               />
             ))}
-          </section>
+          </div>
           {filteredItems.length === 0 ? <div className={styles.emptyState}>{emptyLabel}</div> : null}
         </div>
       </div>

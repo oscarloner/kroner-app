@@ -73,8 +73,8 @@ export async function POST(request: Request) {
         legacy_id: String(item.id),
         name: item.name,
         amount: item.amount,
-        type: "fixed",
-        cat: item.type === "sub" ? "Abonnementer" : item.cat,
+        type: item.type,
+        cat: item.cat,
         workspace_id: workspaceMap.get(item.ws) ?? null,
         link: item.link || null
       }));

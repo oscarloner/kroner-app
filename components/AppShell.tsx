@@ -7,7 +7,7 @@ import type { AppAccount } from "@/lib/types";
 const NAV_ITEMS = [
   { href: "/", label: "Oversikt", icon: "◈" },
   { href: "/transaksjoner", label: "Transaksjoner", icon: "↕" },
-  { href: "/faste", label: "Faste", icon: "★" },
+  { href: "/faste", label: "Faste utgifter", icon: "★" },
   { href: "/graf", label: "Graf", icon: "↗" }
 ] as const;
 

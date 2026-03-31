@@ -19,12 +19,10 @@ function toLearningExample(
   },
   workspaceNames: Map<string, string>
 ): AiLearningExample {
-  const isLegacySubscription = row.type === "sub";
-
   return {
     name: row.name,
-    type: isLegacySubscription ? "fixed" : (row.type as "income" | "expense" | "fixed"),
-    cat: isLegacySubscription ? "Abonnementer" : row.cat,
+    type: row.type as "income" | "expense" | "sub" | "fixed",
+    cat: row.cat,
     workspaceName: row.workspace_id ? workspaceNames.get(row.workspace_id) ?? null : null
   };
 }

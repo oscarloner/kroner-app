@@ -10,7 +10,7 @@ type Suggestion = {
   ws?: string;
 };
 
-type AddType = "income" | "expense" | "fixed";
+type AddType = "income" | "expense" | "sub" | "fixed";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -18,7 +18,6 @@ function cx(...values: Array<string | false | undefined>) {
 
 function normalizeSuggestionType(type?: Suggestion["type"]): AddType | undefined {
   if (!type) return undefined;
-  if (type === "sub") return "fixed";
   return type;
 }
 
@@ -45,6 +44,7 @@ export function AddModal({
   const availableTypes = allowedTypes && allowedTypes.length > 0 ? allowedTypes : ([
     "income",
     "expense",
+    "sub",
     "fixed"
   ] as AddType[]);
   const resolvedDefaultType =
@@ -80,7 +80,7 @@ export function AddModal({
       setType(nextType);
       setName(prefill?.name ?? "");
       setAmount(prefill?.amount != null ? String(prefill.amount) : "");
-      setCat(prefill?.type === "sub" ? "Abonnementer" : (prefill?.cat ?? CATEGORIES[4]));
+      setCat(prefill?.cat ?? CATEGORIES[4]);
       setWorkspaceId(resolveWorkspace(prefill?.ws) ?? defaultWorkspaceId);
       setDate(prefill?.date ?? new Date().toISOString().slice(0, 10));
       setStatus("");
@@ -148,9 +148,7 @@ export function AddModal({
   function applySuggestion(value: Suggestion) {
     const normalizedType = normalizeSuggestionType(value.type);
     if (normalizedType) setType(normalizedType);
-    if (value.type === "sub") {
-      setCat("Abonnementer");
-    } else if (value.cat) {
+    if (value.cat) {
       setCat(value.cat);
     }
     const resolvedId = resolveWorkspace(value.ws);
@@ -189,14 +187,15 @@ export function AddModal({
 
   if (!open) return null;
 
-  const recurring = type === "fixed";
+  const recurring = type === "sub" || type === "fixed";
   const suggestionWorkspace = workspaces.find(
     (w) => w.id === resolveWorkspace(suggestion?.ws)
   );
   const typeOptions = [
     { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
     { value: "expense", label: "↓ Utgift", className: styles.typePillExpense },
-    { value: "fixed", label: "★ Fast utgift", className: styles.typePillFixed }
+    { value: "sub", label: "↻ Abonnement", className: styles.typePillSub },
+    { value: "fixed", label: "★ Fast inntekt", className: styles.typePillFixed }
   ].filter((item) => availableTypes.includes(item.value as AddType));
 
   return (

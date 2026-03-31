@@ -60,15 +60,17 @@ export function OverviewClient({
   const filteredMonthEntries = monthEntries.filter((entry) => matches(entry));
 
   const filteredRecurring = recurringItems.filter((item) => matches(item));
-  const fixedItems = filteredRecurring.filter((item) => item.type === "fixed");
+  const fixedExpenseItems = filteredRecurring.filter(
+    (item) => item.type === "fixed" || item.type === "sub"
+  );
   const income = filteredMonthEntries
     .filter((entry) => entry.type === "income")
     .reduce((sum, entry) => sum + entry.amount, 0);
   const expense = filteredMonthEntries
     .filter((entry) => entry.type === "expense")
     .reduce((sum, entry) => sum + entry.amount, 0);
-  const fixed = fixedItems.reduce((sum, item) => sum + item.amount, 0);
-  const net = income - expense - fixed;
+  const fixedExpenses = fixedExpenseItems.reduce((sum, item) => sum + item.amount, 0);
+  const net = income - expense - fixedExpenses;
 
   return (
     <>
@@ -103,8 +105,8 @@ export function OverviewClient({
           <section className={styles.cards}>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Faste utgifter</div>
-              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(fixed)}</div>
-              <div className={styles.cardSub}>{fixedItems.length} poster</div>
+              <div className={cx(styles.cardValue, styles.expenseValue)}>{formatCurrency(fixedExpenses)}</div>
+              <div className={styles.cardSub}>{fixedExpenseItems.length} poster</div>
             </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Inntekter</div>

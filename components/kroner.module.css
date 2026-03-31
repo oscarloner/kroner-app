@@ -644,6 +644,11 @@
   font-size: 11px;
 }
 
+.txCategory {
+  color: var(--text2);
+  font-size: 12px;
+}
+
 .txMetaCompact {
   display: none;
   flex-wrap: wrap;
@@ -1551,6 +1556,7 @@
   }
 
   .txDate,
+  .txCategory,
   .txRow > .typeBadge,
   .txRow > .workspaceBadge {
     display: none;

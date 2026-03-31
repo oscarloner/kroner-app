@@ -8,7 +8,7 @@ import { ScanModal } from "@/components/ScanModal";
 import styles from "@/components/kroner.module.css";
 import type { Entry, OcrSuggestion, RecurringItem, Workspace } from "@/lib/types";
 
-type AddType = "income" | "expense" | "fixed";
+type AddType = "income" | "expense" | "sub" | "fixed";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");

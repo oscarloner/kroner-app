@@ -72,8 +72,6 @@ function mapEntry(row: EntryRow): Entry {
 }
 
 function mapRecurring(row: RecurringRow): RecurringItem {
-  const isLegacySubscription = row.type === "sub";
-
   return {
     id: row.id,
     accountId: row.account_id,
@@ -81,8 +79,8 @@ function mapRecurring(row: RecurringRow): RecurringItem {
     legacyId: row.legacy_id,
     name: row.name,
     amount: Number(row.amount),
-    type: "fixed",
-    cat: isLegacySubscription ? "Abonnementer" : row.cat,
+    type: row.type,
+    cat: row.cat,
     workspaceId: row.workspace_id,
     link: row.link,
     createdAt: row.created_at
