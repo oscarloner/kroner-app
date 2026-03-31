@@ -49,7 +49,7 @@ export function Topbar({
   const activeWorkspace = workspaces.find((workspace) => workspace.id === currentWorkspaceId);
   const workspaceLabel =
     currentWorkspaceId === "all"
-      ? "Alle kontoer"
+      ? "Alle prosjekter"
       : currentWorkspaceName || activeWorkspace?.name || currentAccountName;
   const workspaceDotColor = activeWorkspace?.color ?? "#888";
   const previousMonth = shiftMonthKey(monthKey, -1);
@@ -124,7 +124,7 @@ export function Topbar({
               prefetch={false}
             >
               <span className={styles.workspaceDot} style={{ backgroundColor: "#888" }} />
-              Alle kontoer
+              Alle prosjekter
             </Link>
             {workspaces.map((workspace) => (
               <Link
@@ -253,7 +253,7 @@ export function Topbar({
             </div>
 
             <div className={styles.sheetSection}>
-              <div className={styles.sheetSectionLabel}>Workspace</div>
+              <div className={styles.sheetSectionLabel}>Prosjekt</div>
               <div className={styles.sheetChipList}>
                 <Link
                   className={cx(styles.sheetChip, currentWorkspaceId === "all" && styles.sheetChipActive)}
@@ -261,7 +261,7 @@ export function Topbar({
                   onClick={() => setSheetOpen(false)}
                   prefetch={false}
                 >
-                  Alle kontoer
+                  Alle prosjekter
                 </Link>
                 {workspaces.map((workspace) => (
                   <Link

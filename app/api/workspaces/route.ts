@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const account = await requireAccountAccess(accountId);
 
     if (!name?.trim()) {
-      return NextResponse.json({ message: "Missing workspace name." }, { status: 400 });
+      return NextResponse.json({ message: "Mangler prosjektnavn." }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -37,11 +37,11 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    return NextResponse.json({ message: "Workspace opprettet." });
+    return NextResponse.json({ message: "Prosjekt opprettet." });
   } catch (error) {
     return NextResponse.json(
       {
-        message: error instanceof Error ? error.message : "Could not create workspace."
+        message: error instanceof Error ? error.message : "Kunne ikke opprette prosjekt."
       },
       { status: 500 }
     );

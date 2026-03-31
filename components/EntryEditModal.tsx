@@ -156,9 +156,9 @@ export function EntryEditModal({
               </select>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Tilhører</label>
+              <label className={styles.fieldLabel}>Prosjekt</label>
               <select className={styles.select} onChange={(event) => setWorkspaceId(event.target.value)} value={workspaceId}>
-                <option value="">Uten konto</option>
+                <option value="">Uten prosjekt</option>
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>
                     {workspace.name}
@@ -176,7 +176,7 @@ export function EntryEditModal({
                 onChange={(event) => setSourceWorkspaceId(event.target.value)}
                 value={sourceWorkspaceId}
               >
-                <option value="">Uten konto</option>
+                <option value="">Uten prosjekt</option>
                 {workspaces.map((workspace) => (
                   <option key={workspace.id} value={workspace.id}>
                     {workspace.name}

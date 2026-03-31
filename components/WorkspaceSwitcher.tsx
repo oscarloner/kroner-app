@@ -30,10 +30,10 @@ export function WorkspaceSwitcher({
 
   const currentLabel = useMemo(() => {
     if (currentWorkspaceId === "all") {
-      return "Alle workspaces";
+      return "Alle prosjekter";
     }
 
-    return workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ?? "Workspace";
+    return workspaces.find((workspace) => workspace.id === currentWorkspaceId)?.name ?? "Prosjekt";
   }, [currentWorkspaceId, workspaces]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -57,14 +57,14 @@ export function WorkspaceSwitcher({
       const json = (await response.json()) as { message?: string };
 
       if (!response.ok) {
-        throw new Error(json.message || "Kunne ikke opprette workspace.");
+        throw new Error(json.message || "Kunne ikke opprette prosjekt.");
       }
 
       setName("");
-      setStatus(json.message || "Workspace opprettet.");
+      setStatus(json.message || "Prosjekt opprettet.");
       window.location.reload();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Kunne ikke opprette workspace.");
+      setStatus(error instanceof Error ? error.message : "Kunne ikke opprette prosjekt.");
     } finally {
       setBusy(false);
     }
@@ -72,7 +72,7 @@ export function WorkspaceSwitcher({
 
   return (
     <section className="panel">
-      <div className="panelTitle">Workspace</div>
+      <div className="panelTitle">Prosjekter</div>
       <div className="accountName">{currentLabel}</div>
       <div className="switchList">
         <a
@@ -92,7 +92,7 @@ export function WorkspaceSwitcher({
         ))}
       </div>
 
-      <div className="sectionLabel">Ny workspace</div>
+      <div className="sectionLabel">Nytt prosjekt</div>
       <form className="loginForm" onSubmit={handleSubmit}>
         <input
           className="textInput"
@@ -108,7 +108,7 @@ export function WorkspaceSwitcher({
           onChange={(event) => setColor(event.target.value)}
         />
         <button className="primaryButton" type="submit" disabled={busy}>
-          {busy ? "Oppretter..." : "Opprett workspace"}
+          {busy ? "Oppretter..." : "Opprett prosjekt"}
         </button>
       </form>
       {status ? <div className="statusText">{status}</div> : null}

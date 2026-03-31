@@ -195,11 +195,14 @@ export const SEEDED_BANK_RULES: SeededBankRule[] = [
   {
     id: "sit-trening",
     label: "SiT Trening",
-    match: { normalizedIncludes: ["SIT TRENING", "SIT", "STUDENTSAMSKIPNADEN"], entryType: "expense" },
+    match: {
+      normalizedIncludes: ["SIT TRENING", "TRENING", "SITI TRENING", "SIT TRAINING"],
+      entryType: "expense"
+    },
     transactionKind: "subscription_expense",
     cat: "Annet",
     confidenceScore: 93,
-    reviewReason: "SiT Trening behandles som en fast månedlig utgift.",
+    reviewReason: "SiT Trening behandles som en fast månedlig utgift når treningsmønsteret matcher tydelig.",
     autoApply: true
   },
   {

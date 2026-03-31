@@ -29,7 +29,7 @@ export function SubCard({
             className={styles.workspaceBadgeDot}
             style={{ backgroundColor: workspace?.color ?? "#787774" }}
           />
-          {workspace?.name ?? "Uten konto"}
+          {workspace?.name ?? "Uten prosjekt"}
         </div>
       </div>
       <div className={cx(styles.subCardAmount, item.type === "fixed" ? styles.fixedValue : styles.expenseValue)}>

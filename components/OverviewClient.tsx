@@ -142,7 +142,7 @@ export function OverviewClient({
             <div className={styles.th}>Navn</div>
             <div className={styles.th}>Dato</div>
             <div className={styles.th}>Kategori</div>
-            <div className={styles.th}>Konto</div>
+            <div className={styles.th}>Prosjekt</div>
             <div className={cx(styles.th, styles.thRight)}>Beløp</div>
             <div className={styles.th} />
           </div>

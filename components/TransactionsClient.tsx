@@ -234,7 +234,7 @@ export function TransactionsClient({
                   onChange={(event) => setBulkWorkspaceId(event.target.value)}
                   value={bulkWorkspaceId}
                 >
-                  <option value="">Uten konto</option>
+                  <option value="">Uten prosjekt</option>
                   {workspaces.map((workspace) => (
                     <option key={workspace.id} value={workspace.id}>
                       {workspace.name}
@@ -289,7 +289,7 @@ export function TransactionsClient({
             <div className={styles.th}>Navn</div>
             <div className={styles.th}>Dato</div>
             <div className={styles.th}>Kategori</div>
-            <div className={styles.th}>Konto</div>
+            <div className={styles.th}>Prosjekt</div>
             <div className={cx(styles.th, styles.thRight)}>Beløp</div>
             <div className={styles.th} />
           </div>

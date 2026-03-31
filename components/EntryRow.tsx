@@ -89,7 +89,7 @@ export function EntryRow({
                 className={styles.workspaceBadgeDot}
                 style={{ backgroundColor: workspace?.color ?? "#787774" }}
               />
-              {workspace?.name ?? "Uten konto"}
+              {workspace?.name ?? "Uten prosjekt"}
             </span>
             {showSourceWorkspace ? (
               <span className={styles.txMetaItem}>Betalt fra {sourceWorkspace?.name}</span>
@@ -103,7 +103,7 @@ export function EntryRow({
             className={styles.workspaceBadgeDot}
             style={{ backgroundColor: workspace?.color ?? "#787774" }}
           />
-          {workspace?.name ?? "Uten konto"}
+          {workspace?.name ?? "Uten prosjekt"}
         </div>
         <div className={cx(styles.amount, amountClass)}>
           {entry.type === "income" ? "+" : "−"} {formatCurrency(entry.amount)}

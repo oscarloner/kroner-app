@@ -321,7 +321,7 @@ export function AddModal({
               </select>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Konto</label>
+              <label className={styles.fieldLabel}>Prosjekt</label>
               <select
                 className={styles.select}
                 onChange={(e) => setWorkspaceId(e.target.value)}
