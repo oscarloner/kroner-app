@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       type,
       cat,
       workspaceId,
+      sourceWorkspaceId,
       dayOfMonth,
       date,
       link,
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
       type?: "income" | "expense" | "sub" | "fixed";
       cat?: string;
       workspaceId?: string;
+      sourceWorkspaceId?: string | null;
       dayOfMonth?: number;
       date?: string;
       link?: string;
@@ -76,7 +78,13 @@ export async function POST(request: Request) {
       }
 
       const { error } = await supabase.from("recurring_items").insert({
-        ...common,
+        account_id: account.accountId,
+        created_by: account.user.id,
+        legacy_id: null,
+        name: name.trim(),
+        amount,
+        cat: cat.trim(),
+        workspace_id: workspaceId || null,
         type,
         link: link?.trim() || null,
         day_of_month: dayOfMonth
@@ -91,6 +99,7 @@ export async function POST(request: Request) {
 
     const { error } = await supabase.from("entries").insert({
       ...common,
+      source_workspace_id: sourceWorkspaceId || null,
       type,
       date: date || new Date().toISOString().slice(0, 10),
       link: link?.trim() || null,
@@ -114,12 +123,15 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { id, kind } = (await request.json()) as {
+    const { id, ids, kind } = (await request.json()) as {
       id?: string;
+      ids?: string[];
       kind?: "entry" | "recurring";
     };
 
-    if (!id || !kind) {
+    const targetIds = Array.from(new Set([id, ...(ids ?? [])].filter((value): value is string => Boolean(value))));
+
+    if (targetIds.length === 0 || !kind) {
       return NextResponse.json({ message: "Missing id or kind." }, { status: 400 });
     }
 
@@ -134,20 +146,28 @@ export async function DELETE(request: Request) {
 
     const table = kind === "entry" ? "entries" : "recurring_items";
 
-    const { data: row } = await supabase
+    const { data: rows, error: rowsError } = await supabase
       .from(table)
       .select("account_id")
-      .eq("id", id)
-      .maybeSingle();
+      .in("id", targetIds);
 
-    if (!row) {
+    if (rowsError) {
+      throw rowsError;
+    }
+
+    if (!rows || rows.length !== targetIds.length) {
       return NextResponse.json({ message: "Not found." }, { status: 404 });
+    }
+
+    const accountIds = Array.from(new Set(rows.map((row) => row.account_id)));
+    if (accountIds.length !== 1) {
+      return NextResponse.json({ message: "Cannot delete across multiple accounts." }, { status: 400 });
     }
 
     const { data: membership } = await supabase
       .from("account_members")
       .select("role")
-      .eq("account_id", row.account_id)
+      .eq("account_id", accountIds[0])
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -155,7 +175,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ message: "No access." }, { status: 403 });
     }
 
-    const { error } = await supabase.from(table).delete().eq("id", id);
+    const { error } = await supabase.from(table).delete().in("id", targetIds);
 
     if (error) {
       throw error;
@@ -176,27 +196,95 @@ export async function PATCH(request: Request) {
   try {
     const {
       id,
+      ids,
       kind,
       name,
       amount,
       cat,
       workspaceId,
+      sourceWorkspaceId,
       dayOfMonth,
       date,
       link,
       note
     } = (await request.json()) as {
       id?: string;
+      ids?: string[];
       kind?: "entry" | "recurring";
       name?: string;
       amount?: number;
       cat?: string;
       workspaceId?: string | null;
+      sourceWorkspaceId?: string | null;
       dayOfMonth?: number;
       date?: string;
       link?: string;
       note?: string;
     };
+
+    const targetIds = Array.from(new Set([id, ...(ids ?? [])].filter((value): value is string => Boolean(value))));
+
+    if (targetIds.length > 0) {
+      if (kind !== "entry") {
+        return NextResponse.json({ message: "Bulk update is only supported for entries." }, { status: 400 });
+      }
+
+      if (!cat?.trim()) {
+        return NextResponse.json({ message: "Missing category." }, { status: 400 });
+      }
+
+      const supabase = await createClient();
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+      }
+
+      const { data: rows, error: rowsError } = await supabase
+        .from("entries")
+        .select("id, account_id")
+        .in("id", targetIds);
+
+      if (rowsError) {
+        throw rowsError;
+      }
+
+      if (!rows || rows.length !== targetIds.length) {
+        return NextResponse.json({ message: "Not found." }, { status: 404 });
+      }
+
+      const accountIds = Array.from(new Set(rows.map((row) => row.account_id)));
+      if (accountIds.length !== 1) {
+        return NextResponse.json({ message: "Cannot update across multiple accounts." }, { status: 400 });
+      }
+
+      const { data: membership } = await supabase
+        .from("account_members")
+        .select("role")
+        .eq("account_id", accountIds[0])
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!membership) {
+        return NextResponse.json({ message: "No access." }, { status: 403 });
+      }
+
+      const { error } = await supabase
+        .from("entries")
+        .update({
+          cat: cat.trim(),
+          workspace_id: workspaceId || null
+        })
+        .in("id", targetIds);
+
+      if (error) {
+        throw error;
+      }
+
+      return NextResponse.json({ message: "Oppdatert." });
+    }
 
     if (!id || !kind) {
       return NextResponse.json({ message: "Missing id or kind." }, { status: 400 });
@@ -255,6 +343,7 @@ export async function PATCH(request: Request) {
       day_of_month?: number;
       date?: string;
       note?: string | null;
+      source_workspace_id?: string | null;
     } = {
       name: name.trim(),
       amount,
@@ -270,6 +359,7 @@ export async function PATCH(request: Request) {
 
       updatePayload.date = date;
       updatePayload.note = note?.trim() || null;
+      updatePayload.source_workspace_id = sourceWorkspaceId || null;
     } else {
       if (
         typeof dayOfMonth !== "number" ||

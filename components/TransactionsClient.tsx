@@ -5,7 +5,7 @@ import { EntryRow } from "@/components/EntryRow";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
-import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
+import { CATEGORIES, type AppAccount, type Entry, type RecurringItem, type Workspace } from "@/lib/types";
 
 const FILTERS = [
   { value: "all", label: "Alle" },
@@ -57,6 +57,10 @@ export function TransactionsClient({
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCategory, setBulkCategory] = useState<(typeof CATEGORIES)[number]>("Annet");
+  const [bulkWorkspaceId, setBulkWorkspaceId] = useState(currentWorkspaceId === "all" ? "" : currentWorkspaceId);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const workspaceMap = useMemo(
     () => new Map(workspaces.map((workspace) => [workspace.id, workspace])),
@@ -89,6 +93,75 @@ export function TransactionsClient({
       })
       .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
   }, [monthEntries, query, filter]);
+
+  const selectableEntries = filteredEntries.filter((entry) => !entry.isProjected);
+  const allSelectableVisibleIds = selectableEntries.map((entry) => entry.id);
+  const allVisibleSelected =
+    allSelectableVisibleIds.length > 0 && allSelectableVisibleIds.every((id) => selectedIds.includes(id));
+
+  async function handleBulkDelete() {
+    if (selectedIds.length === 0 || bulkBusy) {
+      return;
+    }
+
+    setBulkBusy(true);
+
+    try {
+      const response = await fetch("/api/entries", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ids: selectedIds,
+          kind: "entry"
+        })
+      });
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(json.message || "Kunne ikke slette valgte transaksjoner.");
+      }
+
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Kunne ikke slette valgte transaksjoner.");
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkRecategorize() {
+    if (selectedIds.length === 0 || bulkBusy) {
+      return;
+    }
+
+    setBulkBusy(true);
+
+    try {
+      const response = await fetch("/api/entries", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          ids: selectedIds,
+          kind: "entry",
+          cat: bulkCategory,
+          workspaceId: bulkWorkspaceId || null
+        })
+      });
+
+      if (!response.ok) {
+        const json = (await response.json().catch(() => ({}))) as { message?: string };
+        throw new Error(json.message || "Kunne ikke oppdatere valgte transaksjoner.");
+      }
+
+      window.location.reload();
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Kunne ikke oppdatere valgte transaksjoner.");
+      setBulkBusy(false);
+    }
+  }
 
   return (
     <>
@@ -133,7 +206,75 @@ export function TransactionsClient({
             ))}
           </div>
 
+          <div className={styles.bulkBar}>
+            <label className={styles.bulkSelectAll}>
+              <input
+                checked={allVisibleSelected}
+                className={styles.txCheckbox}
+                onChange={(event) => {
+                  if (event.target.checked) {
+                    setSelectedIds((current) =>
+                      Array.from(new Set([...current, ...allSelectableVisibleIds]))
+                    );
+                    return;
+                  }
+
+                  setSelectedIds((current) =>
+                    current.filter((id) => !allSelectableVisibleIds.includes(id))
+                  );
+                }}
+                type="checkbox"
+              />
+              Velg synlige
+            </label>
+            <div className={styles.bulkCount}>
+              {selectedIds.length > 0 ? `${selectedIds.length} valgt` : "Ingen valgt"}
+            </div>
+            <select
+              className={styles.select}
+              disabled={selectedIds.length === 0 || bulkBusy}
+              onChange={(event) => setBulkCategory(event.target.value as (typeof CATEGORIES)[number])}
+              value={bulkCategory}
+            >
+              {CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+            <select
+              className={styles.select}
+              disabled={selectedIds.length === 0 || bulkBusy}
+              onChange={(event) => setBulkWorkspaceId(event.target.value)}
+              value={bulkWorkspaceId}
+            >
+              <option value="">Uten konto</option>
+              {workspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className={styles.smallButton}
+              disabled={selectedIds.length === 0 || bulkBusy}
+              onClick={handleBulkRecategorize}
+              type="button"
+            >
+              {bulkBusy ? "Jobber..." : "Oppdater valgte"}
+            </button>
+            <button
+              className={styles.smallButton}
+              disabled={selectedIds.length === 0 || bulkBusy}
+              onClick={handleBulkDelete}
+              type="button"
+            >
+              Slett valgte
+            </button>
+          </div>
+
           <div className={styles.tableHeader}>
+            <div className={styles.th} />
             <div className={styles.th}>Navn</div>
             <div className={styles.th}>Dato</div>
             <div className={styles.th}>Kategori</div>
@@ -148,7 +289,18 @@ export function TransactionsClient({
                 deleteKind="entry"
                 deletable={!entry.isProjected}
                 entry={entry}
+                onToggleSelect={(id, checked) =>
+                  setSelectedIds((current) =>
+                    checked ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id)
+                  )
+                }
+                selectable={!entry.isProjected}
+                selected={selectedIds.includes(entry.id)}
                 workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
+                sourceWorkspace={
+                  entry.sourceWorkspaceId ? workspaceMap.get(entry.sourceWorkspaceId) : undefined
+                }
+                workspaces={workspaces}
               />
             ))}
             {filteredEntries.length === 0 ? (

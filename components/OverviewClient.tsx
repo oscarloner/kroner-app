@@ -155,6 +155,10 @@ export function OverviewClient({
                   deletable={!entry.isProjected}
                   entry={entry}
                   workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
+                  sourceWorkspace={
+                    entry.sourceWorkspaceId ? workspaceMap.get(entry.sourceWorkspaceId) : undefined
+                  }
+                  workspaces={workspaces}
                 />
               ))}
             {filteredMonthEntries.length === 0 ? (

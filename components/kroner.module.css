@@ -190,6 +190,42 @@
   font-size: 11px;
 }
 
+.bulkBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 14px;
+}
+
+.bulkSelectAll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text2);
+  font-size: 12px;
+}
+
+.bulkCount {
+  color: var(--text3);
+  font-size: 12px;
+  min-width: 72px;
+}
+
+.txSelectCell {
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.txCheckbox {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--text);
+}
+
 .main {
   flex: 1;
   display: flex;
@@ -581,7 +617,7 @@
 
 .tableHeader {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) 82px 104px 92px 88px 86px;
+  grid-template-columns: 28px minmax(0, 1.35fr) 82px 104px 92px 88px 86px;
   gap: 8px;
   padding: 6px 8px 6px 6px;
   margin-bottom: 2px;
@@ -606,7 +642,7 @@
 
 .txRow {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) 82px 104px 92px 88px 86px;
+  grid-template-columns: 28px minmax(0, 1.35fr) 82px 104px 92px 88px 86px;
   gap: 8px;
   align-items: center;
   padding: 9px 8px 9px 6px;
@@ -1582,6 +1618,7 @@
 
   .txDate,
   .txCategory,
+  .txSelectCell,
   .txRow > .typeBadge,
   .txRow > .workspaceBadge {
     display: none;
