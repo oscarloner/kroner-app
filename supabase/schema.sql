@@ -89,6 +89,7 @@ alter table public.entries add column if not exists raw_name text;
 alter table public.entries add column if not exists payment_type text;
 alter table public.entries add column if not exists import_batch_id uuid;
 alter table public.entries add column if not exists match_status text;
+alter table public.entries add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
 
 create table if not exists public.bank_import_batches (
   id uuid primary key default gen_random_uuid(),
@@ -123,6 +124,7 @@ create table if not exists public.bank_transactions (
   raw_label text not null,
   normalized_label text not null,
   entry_type text not null check (entry_type in ('income', 'expense')),
+  source_workspace_id uuid references public.workspaces(id) on delete set null,
   source_fingerprint text not null,
   status text not null default 'pending' check (status in ('pending', 'applied', 'ignored', 'transfer', 'linked')),
   review_group text not null check (review_group in ('new', 'probable_match', 'transfer', 'ignored_candidate')),
@@ -148,12 +150,19 @@ create table if not exists public.bank_learning_examples (
   entry_type text not null check (entry_type in ('income', 'expense')),
   cat text not null,
   workspace_id uuid references public.workspaces(id) on delete set null,
+  source_workspace_id uuid references public.workspaces(id) on delete set null,
   entry_name text not null,
   usage_count integer not null default 1,
   last_confirmed_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   unique (account_id, normalized_label, payment_type, entry_type, cat, workspace_id)
 );
+
+alter table public.bank_transactions
+add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
+
+alter table public.bank_learning_examples
+add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
 
 do $$
 begin

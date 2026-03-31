@@ -17,6 +17,7 @@ export type AiBankLearningExample = {
   type: "income" | "expense";
   cat: string;
   workspaceName?: string | null;
+  sourceWorkspaceName?: string | null;
   usageCount?: number;
 };
 
@@ -237,8 +238,11 @@ export function buildCategorizeSystem(
     buildBankLearningSection(
       bankLearningExamples.map((example) => {
         const workspace = example.workspaceName ? `, konto=${example.workspaceName}` : "";
+        const sourceWorkspace = example.sourceWorkspaceName
+          ? `, betalt_fra=${example.sourceWorkspaceName}`
+          : "";
         const countLabel = example.usageCount && example.usageCount > 1 ? `, brukt ${example.usageCount} ganger` : "";
-        return `${example.rawLabel} [betalingstype=${example.paymentType}] -> type=${example.type}, kategori=${example.cat}${workspace}${countLabel}`;
+        return `${example.rawLabel} [betalingstype=${example.paymentType}] -> type=${example.type}, kategori=${example.cat}${workspace}${sourceWorkspace}${countLabel}`;
       })
     )
   ].join(" ");

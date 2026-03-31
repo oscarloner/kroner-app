@@ -22,6 +22,7 @@ type BankTransactionRow = {
   raw_label: string;
   normalized_label: string;
   entry_type: EntryType;
+  source_workspace_id: string | null;
   source_fingerprint: string;
   suggested_entry_id: string | null;
   selected_entry_id: string | null;
@@ -82,7 +83,7 @@ export async function POST(
     const { data: transactions, error: transactionError } = await supabase
       .from("bank_transactions")
       .select(
-        "id, account_id, batch_id, booking_date, amount, payment_type, raw_label, normalized_label, entry_type, source_fingerprint, suggested_entry_id, selected_entry_id"
+        "id, account_id, batch_id, booking_date, amount, payment_type, raw_label, normalized_label, entry_type, source_workspace_id, source_fingerprint, suggested_entry_id, selected_entry_id"
       )
       .eq("batch_id", batchId)
       .eq("account_id", account.accountId)
@@ -176,6 +177,7 @@ export async function POST(
             amount: transaction.amount,
             type: transaction.entry_type,
             date: transaction.booking_date,
+            source_workspace_id: transaction.source_workspace_id,
             source_type: "nordea_csv",
             source_name: "Nordea",
             source_fingerprint: transaction.source_fingerprint,
@@ -214,6 +216,7 @@ export async function POST(
           entry_type: transaction.entry_type,
           cat: linkedEntry.cat,
           workspace_id: linkedEntry.workspace_id,
+          source_workspace_id: transaction.source_workspace_id,
           entry_name: transaction.raw_label
         });
 
@@ -249,6 +252,7 @@ export async function POST(
             type: chosenType,
             cat: chosenCat,
             workspace_id: workspaceId,
+            source_workspace_id: transaction.source_workspace_id,
             date: transaction.booking_date,
             source_type: "nordea_csv",
             source_name: "Nordea",
@@ -287,6 +291,7 @@ export async function POST(
           entry_type: chosenType,
           cat: chosenCat,
           workspace_id: workspaceId,
+          source_workspace_id: transaction.source_workspace_id,
           entry_name: transaction.raw_label
         });
 
@@ -306,6 +311,7 @@ export async function POST(
           type: chosenType,
           cat: chosenCat,
           workspace_id: workspaceId,
+          source_workspace_id: transaction.source_workspace_id,
           date: transaction.booking_date,
           link: null,
           note: null,
@@ -347,6 +353,7 @@ export async function POST(
         entry_type: chosenType,
         cat: chosenCat,
         workspace_id: workspaceId,
+        source_workspace_id: transaction.source_workspace_id,
         entry_name: transaction.raw_label
       });
 

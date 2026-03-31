@@ -57,6 +57,7 @@ type LearningRow = {
   entry_type: EntryType;
   cat: string;
   workspace_id: string | null;
+  source_workspace_id: string | null;
   usage_count: number;
 };
 
@@ -114,7 +115,7 @@ export async function fetchBankLearningExamples(accountId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("bank_learning_examples")
-    .select("normalized_label, raw_label, payment_type, entry_type, cat, workspace_id, usage_count")
+    .select("normalized_label, raw_label, payment_type, entry_type, cat, workspace_id, source_workspace_id, usage_count")
     .eq("account_id", accountId)
     .order("usage_count", { ascending: false })
     .limit(300);
@@ -130,6 +131,7 @@ export async function fetchBankLearningExamples(accountId: string) {
     type: example.entry_type,
     cat: example.cat,
     workspaceId: example.workspace_id,
+    sourceWorkspaceId: example.source_workspace_id,
     usageCount: example.usage_count
   }));
 }

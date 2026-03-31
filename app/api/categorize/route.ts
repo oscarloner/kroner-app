@@ -39,6 +39,7 @@ function toBankLearningExample(
     entry_type: "income" | "expense";
     cat: string;
     workspace_id: string | null;
+    source_workspace_id: string | null;
     usage_count: number;
   },
   workspaceNames: Map<string, string>
@@ -50,6 +51,9 @@ function toBankLearningExample(
     type: row.entry_type,
     cat: row.cat,
     workspaceName: row.workspace_id ? workspaceNames.get(row.workspace_id) ?? null : null,
+    sourceWorkspaceName: row.source_workspace_id
+      ? workspaceNames.get(row.source_workspace_id) ?? null
+      : null,
     usageCount: row.usage_count
   };
 }
@@ -105,7 +109,7 @@ export async function POST(request: Request) {
         .limit(100),
       supabase
         .from("bank_learning_examples")
-        .select("raw_label, normalized_label, payment_type, entry_type, cat, workspace_id, usage_count")
+        .select("raw_label, normalized_label, payment_type, entry_type, cat, workspace_id, source_workspace_id, usage_count")
         .eq("account_id", account.accountId)
         .order("usage_count", { ascending: false })
         .limit(150)

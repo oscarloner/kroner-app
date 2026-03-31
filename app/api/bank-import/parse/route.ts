@@ -32,6 +32,7 @@ async function applyImportNew(args: {
   normalizedLabel: string;
   entryType: EntryType;
   sourceFingerprint: string;
+  sourceWorkspaceId: string | null;
   type: EntryType;
   cat: string;
   workspaceId: string | null;
@@ -59,6 +60,7 @@ async function applyImportNew(args: {
         type: args.type,
         cat: args.cat,
         workspace_id: args.workspaceId,
+        source_workspace_id: args.sourceWorkspaceId,
         date: args.bookingDate,
         source_type: "nordea_csv",
         source_name: "Nordea",
@@ -100,6 +102,7 @@ async function applyImportNew(args: {
         type: args.type,
         cat: args.cat,
         workspace_id: args.workspaceId,
+        source_workspace_id: args.sourceWorkspaceId,
         date: args.bookingDate,
         link: null,
         note: null,
@@ -144,6 +147,7 @@ async function applyImportNew(args: {
       entry_type: args.type,
       cat: args.cat,
       workspace_id: args.workspaceId,
+      source_workspace_id: args.sourceWorkspaceId,
       entry_name: args.rawLabel,
       usage_count: 1,
       last_confirmed_at: new Date().toISOString()
@@ -263,6 +267,7 @@ export async function POST(request: Request) {
         raw_label: item.rawLabel,
         normalized_label: item.normalizedLabel,
         entry_type: item.entryType,
+        source_workspace_id: importContext.defaultWorkspaceId,
         source_fingerprint: parsed?.sourceFingerprint ?? "",
         review_group: item.reviewGroup,
         suggested_action: item.suggestedAction,
@@ -309,6 +314,7 @@ export async function POST(request: Request) {
         normalizedLabel: candidate.item.normalizedLabel,
         entryType: candidate.item.entryType,
         sourceFingerprint: parsed.sourceFingerprint,
+        sourceWorkspaceId: importContext.defaultWorkspaceId,
         type: candidate.item.suggestion?.type ?? candidate.item.entryType,
         cat: resolveCategory(candidate.item.suggestion?.cat),
         workspaceId: normalizeWorkspaceId(

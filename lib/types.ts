@@ -66,6 +66,7 @@ export type Entry = {
   type: EntryType;
   cat: string;
   workspaceId: string | null;
+  sourceWorkspaceId?: string | null;
   date: string;
   link: string | null;
   note: string | null;

@@ -285,7 +285,7 @@ export function BankImportModal({
         <div className={styles.modalTitle}>Nordea CSV-import</div>
 
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Denne CSV-en hører til workspace/konto</label>
+          <label className={styles.fieldLabel}>Denne CSV-en er betalt fra workspace/konto</label>
           <select
             className={styles.select}
             disabled={busy || applying}
@@ -334,7 +334,7 @@ export function BankImportModal({
         {summary ? (
           <div className={styles.bankImportStats}>
             <div className={styles.aiChip}>
-              Workspace {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
+              Betalt fra {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
             </div>
             <div className={styles.aiChip}>Totalt {summary.total}</div>
             <div className={styles.aiChip}>Auto-importert {summary.autoAppliedCount}</div>
@@ -440,7 +440,7 @@ export function BankImportModal({
                           </select>
                         </div>
                         <div className={styles.field}>
-                          <label className={styles.fieldLabel}>Konto</label>
+                          <label className={styles.fieldLabel}>Tilhører</label>
                           <select
                             className={styles.select}
                             onChange={(event) =>
@@ -473,7 +473,7 @@ export function BankImportModal({
                     ) : null}
                     {reviewContext.defaultWorkspaceId ? (
                       <div className={styles.bankImportHint}>
-                        Import-workspace: {reviewContext.defaultWorkspaceName ?? "Ukjent workspace"}
+                        Betalt fra: {reviewContext.defaultWorkspaceName ?? "Ukjent workspace"}
                       </div>
                     ) : null}
                   </article>

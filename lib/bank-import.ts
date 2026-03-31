@@ -53,6 +53,7 @@ export type BankLearningExample = {
   type: EntryType;
   cat: string;
   workspaceId: string | null;
+  sourceWorkspaceId: string | null;
   usageCount: number;
 };
 
@@ -390,9 +391,14 @@ export function selectBankSuggestion(
 
     const paymentTypeBonus =
       example.paymentType.trim().toUpperCase() === transaction.paymentType.trim().toUpperCase() ? 20 : 0;
+    const sourceWorkspaceBonus =
+      importContext?.defaultWorkspaceId && example.sourceWorkspaceId === importContext.defaultWorkspaceId
+        ? 25
+        : 0;
     const score =
       scoreNormalizedLabels(transaction.normalizedLabel, example.normalizedLabel) +
       paymentTypeBonus +
+      sourceWorkspaceBonus +
       Math.min(15, example.usageCount * 3);
 
     if (score > bestScore) {
