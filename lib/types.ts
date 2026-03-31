@@ -204,10 +204,11 @@ export type BankImportReviewItem = {
 
 export type BankImportReviewSummary = {
   total: number;
-  newCount: number;
+  autoAppliedCount: number;
+  reviewCount: number;
   probableMatchCount: number;
-  transferCount: number;
   ignoredCount: number;
+  batchCompleted: boolean;
 };
 
 export type BankImportContext = {

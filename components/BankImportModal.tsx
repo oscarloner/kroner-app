@@ -155,6 +155,7 @@ export function BankImportModal({
         message?: string;
         batchId?: string;
         importContext?: BankImportContext;
+        summary?: BankImportReviewSummary;
       };
 
       if (!response.ok || !json.batchId) {
@@ -167,6 +168,20 @@ export function BankImportModal({
             workspaces.find((workspace) => workspace.id === selectedWorkspaceId)?.name ?? "Ukjent workspace"
         }
       );
+      if (json.summary) {
+        setSummary(json.summary);
+      }
+      setBatchId(json.batchId);
+
+      if (json.summary?.batchCompleted) {
+        setItems([]);
+        setDecisions({});
+        setStatus(
+          `Import fullført. ${json.summary.autoAppliedCount} auto-importert, ${json.summary.ignoredCount} ignorert.`
+        );
+        return;
+      }
+
       await loadReview(json.batchId);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Kunne ikke parse CSV.");
@@ -301,7 +316,7 @@ export function BankImportModal({
 
         <div className={styles.bankImportSummaryRow}>
           <button className={styles.modalPrimary} disabled={busy || applying} onClick={handleParse} type="button">
-            {busy ? "Parser..." : "Parse og bygg review"}
+            {busy ? "Parser..." : "Importer og bygg review"}
           </button>
           <button
             className={styles.modalCancel}
@@ -322,16 +337,16 @@ export function BankImportModal({
               Workspace {reviewContext.defaultWorkspaceName ?? defaultWorkspaceName}
             </div>
             <div className={styles.aiChip}>Totalt {summary.total}</div>
-            <div className={styles.aiChip}>Nye {summary.newCount}</div>
+            <div className={styles.aiChip}>Auto-importert {summary.autoAppliedCount}</div>
+            <div className={styles.aiChip}>Trenger review {summary.reviewCount}</div>
             <div className={styles.aiChip}>Match {summary.probableMatchCount}</div>
-            <div className={styles.aiChip}>Transfer {summary.transferCount}</div>
             <div className={styles.aiChip}>Ignorert {summary.ignoredCount}</div>
           </div>
         ) : null}
 
         {items.length > 0 ? (
           <>
-            <div className={styles.sectionDivider}>Review</div>
+            <div className={styles.sectionDivider}>Review det som trenger vurdering</div>
             <div className={styles.bankImportList}>
               {items.map((item) => {
                 const decision =
@@ -475,6 +490,10 @@ export function BankImportModal({
               </button>
             </div>
           </>
+        ) : summary && !summary.batchCompleted ? (
+          <div className={styles.bankImportHint}>
+            Ingen review-rader lastet ennå.
+          </div>
         ) : null}
 
         {status ? <div className={styles.statusText}>{status}</div> : null}

@@ -56,6 +56,12 @@ export type BankLearningExample = {
   usageCount: number;
 };
 
+export type AutoApplyCandidate = {
+  item: BankImportReviewItem;
+  action: "import_new" | "ignore";
+  reason: "safe_suggestion" | "safe_applaus_income" | "ignored_candidate";
+};
+
 function normalizeWorkspaceName(value: string | null | undefined) {
   return normalizeNordeaLabel(value ?? "");
 }
@@ -81,6 +87,7 @@ const KNOWN_REVIEW_LABELS = [
   "BUCKAROO"
 ];
 const REVIEW_KEYWORDS = [" TIL ", " FRA ", "VIPPS"];
+const SAFE_AUTO_IMPORT_PAYMENT_TYPES = new Set(["Visa varekjøp/uttak", "Avtalegiro", "Lønn"]);
 
 function csvLineToCells(line: string) {
   const cells: string[] = [];
@@ -438,22 +445,75 @@ export function selectBankSuggestion(
   return null;
 }
 
+export function classifyAutoApplyCandidate(
+  item: BankImportReviewItem,
+  importContext?: BankImportContext
+): AutoApplyCandidate | null {
+  if (item.isReserved || item.isOwnTransfer || item.suggestedAction === "ignore") {
+    return {
+      item,
+      action: "ignore",
+      reason: "ignored_candidate"
+    };
+  }
+
+  if (item.suggestedMatch) {
+    return null;
+  }
+
+  if (item.reviewGroup !== "new" || item.suggestedAction !== "import_new") {
+    return null;
+  }
+
+  if (!item.suggestion?.workspaceId) {
+    return null;
+  }
+
+  if (
+    importContext?.defaultWorkspaceId &&
+    item.suggestion.workspaceId !== importContext.defaultWorkspaceId
+  ) {
+    return null;
+  }
+
+  if (
+    item.entryType === "income" &&
+    isInvoiceIncomeWorkspace(importContext?.defaultWorkspaceName) &&
+    item.suggestion.cat === "Fakturainntekter"
+  ) {
+    return {
+      item,
+      action: "import_new",
+      reason: "safe_applaus_income"
+    };
+  }
+
+  if (SAFE_AUTO_IMPORT_PAYMENT_TYPES.has(item.paymentType)) {
+    return {
+      item,
+      action: "import_new",
+      reason: "safe_suggestion"
+    };
+  }
+
+  return null;
+}
+
 export function summarizeReviewItems(items: BankImportReviewItem[]): BankImportReviewSummary {
   return items.reduce<BankImportReviewSummary>(
     (summary, item) => {
       summary.total += 1;
       if (item.reviewGroup === "probable_match") summary.probableMatchCount += 1;
-      else if (item.reviewGroup === "transfer") summary.transferCount += 1;
-      else if (item.reviewGroup === "ignored_candidate") summary.ignoredCount += 1;
-      else summary.newCount += 1;
+      summary.reviewCount += 1;
       return summary;
     },
     {
       total: 0,
-      newCount: 0,
+      autoAppliedCount: 0,
+      reviewCount: 0,
       probableMatchCount: 0,
-      transferCount: 0,
-      ignoredCount: 0
+      ignoredCount: 0,
+      batchCompleted: false
     }
   );
 }

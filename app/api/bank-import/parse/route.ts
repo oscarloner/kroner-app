@@ -5,9 +5,155 @@ import {
   buildReviewItemsFromParsed,
   fetchBankLearningExamples,
   fetchExistingEntryMatches,
+  splitParsedReviewItems,
   summarizeParsedRows
 } from "@/lib/bank-import-server";
+import type { BankImportAction, BankImportReviewItem, EntryType } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
+
+function resolveCategory(value: string | undefined) {
+  return value || "Annet";
+}
+
+function normalizeWorkspaceId(value: string | null | undefined) {
+  return value || null;
+}
+
+async function applyImportNew(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  accountId: string;
+  userId: string;
+  batchId: string;
+  lineNumber: number;
+  bookingDate: string;
+  amount: number;
+  paymentType: string;
+  rawLabel: string;
+  normalizedLabel: string;
+  entryType: EntryType;
+  sourceFingerprint: string;
+  type: EntryType;
+  cat: string;
+  workspaceId: string | null;
+}) {
+  const existingByFingerprint = await args.supabase
+    .from("entries")
+    .select("id")
+    .eq("account_id", args.accountId)
+    .eq("source_fingerprint", args.sourceFingerprint)
+    .maybeSingle();
+
+  if (existingByFingerprint.error) {
+    throw new Error(existingByFingerprint.error.message);
+  }
+
+  const appliedEntryId = existingByFingerprint.data?.id ?? null;
+
+  if (appliedEntryId) {
+    const { error } = await args.supabase
+      .from("entries")
+      .update({
+        name: args.rawLabel,
+        raw_name: args.rawLabel,
+        amount: args.amount,
+        type: args.type,
+        cat: args.cat,
+        workspace_id: args.workspaceId,
+        date: args.bookingDate,
+        source_type: "nordea_csv",
+        source_name: "Nordea",
+        source_fingerprint: args.sourceFingerprint,
+        payment_type: args.paymentType,
+        import_batch_id: args.batchId,
+        match_status: "imported"
+      })
+      .eq("id", appliedEntryId)
+      .eq("account_id", args.accountId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const { error: updateTransactionError } = await args.supabase
+      .from("bank_transactions")
+      .update({
+        selected_action: "import_new",
+        applied_entry_id: appliedEntryId,
+        status: "applied"
+      })
+      .eq("batch_id", args.batchId)
+      .eq("line_number", args.lineNumber);
+
+    if (updateTransactionError) {
+      throw new Error(updateTransactionError.message);
+    }
+  } else {
+    const insertedEntry = await args.supabase
+      .from("entries")
+      .insert({
+        account_id: args.accountId,
+        created_by: args.userId,
+        legacy_id: null,
+        name: args.rawLabel,
+        raw_name: args.rawLabel,
+        amount: args.amount,
+        type: args.type,
+        cat: args.cat,
+        workspace_id: args.workspaceId,
+        date: args.bookingDate,
+        link: null,
+        note: null,
+        source_type: "nordea_csv",
+        source_name: "Nordea",
+        source_transaction_id: null,
+        source_fingerprint: args.sourceFingerprint,
+        payment_type: args.paymentType,
+        import_batch_id: args.batchId,
+        match_status: "imported"
+      })
+      .select("id")
+      .single();
+
+    if (insertedEntry.error || !insertedEntry.data) {
+      throw new Error(insertedEntry.error?.message || "Could not create entry from bank import.");
+    }
+
+    const { error: updateTransactionError } = await args.supabase
+      .from("bank_transactions")
+      .update({
+        selected_action: "import_new",
+        applied_entry_id: insertedEntry.data.id,
+        status: "applied"
+      })
+      .eq("batch_id", args.batchId)
+      .eq("line_number", args.lineNumber);
+
+    if (updateTransactionError) {
+      throw new Error(updateTransactionError.message);
+    }
+  }
+
+  await args.supabase.from("bank_learning_examples").upsert(
+    {
+      account_id: args.accountId,
+      created_by: args.userId,
+      source_name: "nordea_csv",
+      raw_label: args.rawLabel,
+      normalized_label: args.normalizedLabel,
+      payment_type: args.paymentType,
+      entry_type: args.type,
+      cat: args.cat,
+      workspace_id: args.workspaceId,
+      entry_name: args.rawLabel,
+      usage_count: 1,
+      last_confirmed_at: new Date().toISOString()
+    },
+    {
+      onConflict: "account_id,normalized_label,payment_type,entry_type,cat,workspace_id",
+      ignoreDuplicates: false
+    }
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -85,10 +231,20 @@ export async function POST(request: Request) {
       learningExamples,
       importContext
     );
+    const { autoApply, needsReview } = splitParsedReviewItems(reviewItems, importContext);
     const rowMap = new Map(parsedRows.map((row) => [row.lineNumber, row]));
+    const autoApplyMap = new Map(autoApply.map((candidate) => [candidate.item.id, candidate]));
     const transactionRows = reviewItems.map((item) => {
       const lineNumber = Number(item.id.split(":")[1]);
       const parsed = rowMap.get(lineNumber);
+      const candidate = autoApplyMap.get(item.id);
+      const selectedAction: BankImportAction | null = candidate?.action ?? null;
+      const status =
+        candidate?.action === "ignore"
+          ? "ignored"
+          : candidate?.action === "import_new"
+            ? "applied"
+            : "pending";
 
       return {
         batch_id: batch.id,
@@ -112,6 +268,8 @@ export async function POST(request: Request) {
         suggested_action: item.suggestedAction,
         suggested_entry_id: item.suggestedMatch?.entryId ?? null,
         suggested_match_score: item.suggestedMatch?.score ?? 0,
+        selected_action: selectedAction,
+        status,
         raw_data: {
           ...parsed?.rawData,
           isOwnTransfer: item.isOwnTransfer,
@@ -126,10 +284,64 @@ export async function POST(request: Request) {
       throw new Error(insertError.message);
     }
 
+    for (const candidate of autoApply) {
+      const lineNumber = Number(candidate.item.id.split(":")[1]);
+      const parsed = rowMap.get(lineNumber);
+
+      if (candidate.action === "ignore") {
+        continue;
+      }
+
+      if (!parsed?.bookingDate) {
+        continue;
+      }
+
+      await applyImportNew({
+        supabase,
+        accountId: account.accountId,
+        userId: account.user.id,
+        batchId: batch.id,
+        lineNumber,
+        bookingDate: parsed.bookingDate,
+        amount: candidate.item.amount,
+        paymentType: candidate.item.paymentType,
+        rawLabel: candidate.item.rawLabel,
+        normalizedLabel: candidate.item.normalizedLabel,
+        entryType: candidate.item.entryType,
+        sourceFingerprint: parsed.sourceFingerprint,
+        type: candidate.item.suggestion?.type ?? candidate.item.entryType,
+        cat: resolveCategory(candidate.item.suggestion?.cat),
+        workspaceId: normalizeWorkspaceId(
+          candidate.item.suggestion?.workspaceId ?? importContext.defaultWorkspaceId
+        )
+      });
+    }
+
+    const parsedSummary = summarizeParsedRows(needsReview);
+    const summary = {
+      ...parsedSummary,
+      total: reviewItems.length,
+      autoAppliedCount: autoApply.filter((candidate) => candidate.action === "import_new").length,
+      ignoredCount: autoApply.filter((candidate) => candidate.action === "ignore").length,
+      batchCompleted: needsReview.length === 0
+    };
+
+    if (summary.batchCompleted) {
+      const { error: batchUpdateError } = await supabase
+        .from("bank_import_batches")
+        .update({ status: "applied" })
+        .eq("id", batch.id)
+        .eq("account_id", account.accountId);
+
+      if (batchUpdateError) {
+        throw new Error(batchUpdateError.message);
+      }
+    }
+
     return NextResponse.json({
       batchId: batch.id,
       importContext,
-      summary: summarizeParsedRows(reviewItems)
+      summary
     });
   } catch (error) {
     return NextResponse.json(

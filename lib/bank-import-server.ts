@@ -1,7 +1,9 @@
 import {
+  classifyAutoApplyCandidate,
   findProbableMatch,
   selectBankSuggestion,
   summarizeReviewItems,
+  type AutoApplyCandidate,
   type BankLearningExample,
   type ExistingEntryMatch,
   type ParsedNordeaTransaction
@@ -45,6 +47,7 @@ type BankTransactionRow = {
   suggested_entry_id: string | null;
   selected_entry_id: string | null;
   raw_data: { isOwnTransfer?: boolean; isReserved?: boolean };
+  status?: "pending" | "applied" | "ignored" | "transfer" | "linked";
 };
 
 type LearningRow = {
@@ -242,6 +245,58 @@ export function buildReviewItemsFromParsed(
   });
 }
 
+export function splitParsedReviewItems(
+  items: BankImportReviewItem[],
+  importContext?: BankImportContext
+) {
+  const autoApply: AutoApplyCandidate[] = [];
+  const needsReview: BankImportReviewItem[] = [];
+
+  for (const item of items) {
+    const candidate = classifyAutoApplyCandidate(item, importContext);
+    if (candidate) {
+      autoApply.push(candidate);
+      continue;
+    }
+
+    needsReview.push(item);
+  }
+
+  return {
+    autoApply,
+    needsReview
+  };
+}
+
+function summarizeStoredRows(rows: BankTransactionRow[]): BankImportReviewSummary {
+  return rows.reduce<BankImportReviewSummary>(
+    (summary, row) => {
+      summary.total += 1;
+
+      if (row.status === "applied" || row.status === "linked") {
+        summary.autoAppliedCount += 1;
+      } else if (row.status === "ignored") {
+        summary.ignoredCount += 1;
+      } else {
+        summary.reviewCount += 1;
+        if (row.review_group === "probable_match") {
+          summary.probableMatchCount += 1;
+        }
+      }
+
+      return summary;
+    },
+    {
+      total: 0,
+      autoAppliedCount: 0,
+      reviewCount: 0,
+      probableMatchCount: 0,
+      ignoredCount: 0,
+      batchCompleted: false
+    }
+  );
+}
+
 export async function getBatchReview(batchId: string, accountId: string) {
   const supabase = await createClient();
   const { data: batch, error: batchError } = await supabase
@@ -281,7 +336,7 @@ export async function getBatchReview(batchId: string, accountId: string) {
   const { data, error } = await supabase
     .from("bank_transactions")
     .select(
-      "id, batch_id, booking_date, amount, currency, payment_type, raw_label, normalized_label, entry_type, review_group, suggested_action, selected_action, suggested_match_score, suggested_entry_id, selected_entry_id, raw_data"
+      "id, batch_id, booking_date, amount, currency, payment_type, raw_label, normalized_label, entry_type, review_group, suggested_action, selected_action, suggested_match_score, suggested_entry_id, selected_entry_id, raw_data, status"
     )
     .eq("batch_id", batchId)
     .eq("account_id", accountId)
@@ -297,19 +352,28 @@ export async function getBatchReview(batchId: string, accountId: string) {
     fetchBankLearningExamples(accountId)
   ]);
 
+  const rows = (data ?? []) as BankTransactionRow[];
   const items = buildStoredReviewItems(
-    (data ?? []) as BankTransactionRow[],
+    rows.filter((row) => row.status === "pending"),
     entries,
     learningExamples,
     importContext
   );
+  const summary = summarizeStoredRows(rows);
   return {
     importContext,
     items,
-    summary: summarizeReviewItems(items)
+    summary: {
+      ...summary,
+      batchCompleted: summary.reviewCount === 0
+    }
   };
 }
 
 export function summarizeParsedRows(items: BankImportReviewItem[]): BankImportReviewSummary {
-  return summarizeReviewItems(items);
+  const summary = summarizeReviewItems(items);
+  return {
+    ...summary,
+    batchCompleted: summary.reviewCount === 0
+  };
 }
