@@ -11,6 +11,7 @@ import {
   type BankTransactionKind,
   type BankTransactionLinkStatus,
   type EntryType,
+  type RecurringItem,
   type Workspace
 } from "@/lib/types";
 import { formatSignedCurrency } from "@/lib/format";
@@ -21,6 +22,12 @@ type DecisionState = {
   cat: string;
   workspaceId: string | null;
   matchEntryId: string | null;
+  recurringItemId: string | null;
+  recurringName: string;
+  recurringCat: string;
+  recurringWorkspaceId: string | null;
+  recurringLink: string;
+  recurringDayOfMonth: number;
   transactionKind: BankTransactionKind;
 };
 
@@ -57,6 +64,18 @@ const ACTION_OPTIONS: Array<{
     className: styles.bankImportActionMatch
   },
   {
+    value: "create_recurring",
+    label: "Opprett som fast post",
+    description: "Lag fast inntekt eller kostnad og koble transaksjonen til den.",
+    className: styles.bankImportActionPrimary
+  },
+  {
+    value: "link_recurring",
+    label: "Koble til fast post",
+    description: "Knytt transaksjonen til en eksisterende fast post.",
+    className: styles.bankImportActionMatch
+  },
+  {
     value: "mark_transfer",
     label: "Transfer/private",
     description: "Marker raden som privat overføring eller nulling.",
@@ -82,16 +101,20 @@ function defaultDecision(
   item: BankImportReviewItem,
   defaultWorkspaceId: string
 ): DecisionState {
+  const defaultWorkspace = item.suggestion?.workspaceId ?? item.suggestedMatch?.workspaceId ?? defaultWorkspaceId ?? null;
+
   return {
     action: item.suggestedAction,
     type: item.suggestion?.type ?? item.suggestedMatch?.type ?? item.entryType,
     cat: item.suggestion?.cat ?? item.suggestedMatch?.cat ?? "Annet",
-    workspaceId:
-      item.suggestion?.workspaceId ??
-      item.suggestedMatch?.workspaceId ??
-      defaultWorkspaceId ??
-      null,
+    workspaceId: defaultWorkspace,
     matchEntryId: item.suggestedMatch?.entryId ?? null,
+    recurringItemId: null,
+    recurringName: item.rawLabel,
+    recurringCat: item.suggestion?.cat ?? "Annet",
+    recurringWorkspaceId: defaultWorkspace,
+    recurringLink: "",
+    recurringDayOfMonth: Number(item.date.slice(8, 10)) || 1,
     transactionKind: item.transactionKind
   };
 }
@@ -114,6 +137,10 @@ function actionLabel(action: BankImportAction) {
       return "Importer som ny";
     case "link_existing":
       return "Koble til treff";
+    case "create_recurring":
+      return "Opprett fast post";
+    case "link_recurring":
+      return "Koble til fast post";
     case "mark_transfer":
       return "Transfer/private";
     case "ignore":
@@ -129,20 +156,35 @@ function reviewStatusText(item: BankImportReviewItem, decision: DecisionState) {
   return actionLabel(decision.action);
 }
 
+function getPreferredDefaultWorkspaceId(workspaces: Workspace[]) {
+  return (
+    workspaces.find((workspace) => workspace.name.trim().toLowerCase() === "privat")?.id ??
+    workspaces[0]?.id ??
+    ""
+  );
+}
+
+function recurringTypeForEntryType(type: EntryType) {
+  return type === "income" ? "fixed" : "sub";
+}
+
 export function BankImportModal({
   accountId,
   currentWorkspaceId,
   open,
   onClose,
+  recurringItems,
   workspaces
 }: {
   accountId: string;
   currentWorkspaceId: string;
   open: boolean;
   onClose: () => void;
+  recurringItems: RecurringItem[];
   workspaces: Workspace[];
 }) {
-  const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
+  const defaultWorkspaceId =
+    currentWorkspaceId === "all" ? getPreferredDefaultWorkspaceId(workspaces) : currentWorkspaceId;
   const defaultWorkspaceName =
     workspaces.find((workspace) => workspace.id === defaultWorkspaceId)?.name ?? "Ukjent prosjekt";
   const [step, setStep] = useState<ModalStep>("upload");
@@ -208,6 +250,14 @@ export function BankImportModal({
       defaultDecision(selectedItem, reviewContext.defaultWorkspaceId ?? defaultWorkspaceId)
     : null;
   const selectedWorkspaceValue = selectedDecision?.workspaceId ?? "";
+  const selectedRecurringWorkspaceValue = selectedDecision?.recurringWorkspaceId ?? "";
+  const selectedRecurringCandidates = useMemo(() => {
+    if (!selectedItem) {
+      return [];
+    }
+
+    return recurringItems.filter((item) => item.type === recurringTypeForEntryType(selectedItem.entryType));
+  }, [recurringItems, selectedItem]);
   const decisionCount = useMemo(
     () => Object.values(decisions).filter((decision) => decision.action !== "ignore").length,
     [decisions]
@@ -421,6 +471,12 @@ export function BankImportModal({
             cat: decisions[item.id]?.cat,
             workspaceId: decisions[item.id]?.workspaceId,
             matchEntryId: decisions[item.id]?.matchEntryId,
+            recurringItemId: decisions[item.id]?.recurringItemId,
+            recurringName: decisions[item.id]?.recurringName,
+            recurringCat: decisions[item.id]?.recurringCat,
+            recurringWorkspaceId: decisions[item.id]?.recurringWorkspaceId,
+            recurringLink: decisions[item.id]?.recurringLink,
+            recurringDayOfMonth: decisions[item.id]?.recurringDayOfMonth,
             transactionKind: decisions[item.id]?.transactionKind
           })),
           linkDecisions: Array.from(
@@ -659,7 +715,9 @@ export function BankImportModal({
 
                   <div className={styles.bankImportActionGrid}>
                     {ACTION_OPTIONS.filter(
-                      (option) => option.value !== "link_existing" || Boolean(selectedItem.suggestedMatch)
+                      (option) =>
+                        (option.value !== "link_existing" || Boolean(selectedItem.suggestedMatch)) &&
+                        (option.value !== "link_recurring" || selectedRecurringCandidates.length > 0)
                     ).map((option) => (
                       <button
                         key={option.value}
@@ -673,6 +731,9 @@ export function BankImportModal({
                             action: option.value,
                             ...(option.value === "link_existing" && selectedItem.suggestedMatch
                               ? { matchEntryId: selectedItem.suggestedMatch.entryId }
+                              : {}),
+                            ...(option.value === "link_recurring"
+                              ? { recurringItemId: selectedRecurringCandidates[0]?.id ?? null }
                               : {})
                           })
                         }
@@ -699,6 +760,145 @@ export function BankImportModal({
                             {selectedItem.suggestedMatch.entryName} ({selectedItem.suggestedMatch.score})
                           </option>
                         </select>
+                      </div>
+                    ) : null}
+
+                    {selectedDecision.action === "link_recurring" ? (
+                      <div className={styles.bankImportFieldGrid}>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Fast post</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { recurringItemId: event.target.value || null })
+                            }
+                            value={selectedDecision.recurringItemId ?? ""}
+                          >
+                            <option value="" disabled>
+                              Velg fast post
+                            </option>
+                            {selectedRecurringCandidates.map((item) => (
+                              <option key={item.id} value={item.id}>
+                                {item.name} · {item.cat}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Transaksjonstype</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, {
+                                transactionKind: event.target.value as BankTransactionKind
+                              })
+                            }
+                            value={selectedDecision.transactionKind}
+                          >
+                            {TRANSACTION_KIND_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {selectedDecision.action === "create_recurring" ? (
+                      <div className={styles.bankImportFieldGrid}>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Navn på fast post</label>
+                          <input
+                            className={styles.input}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { recurringName: event.target.value })
+                            }
+                            value={selectedDecision.recurringName}
+                          />
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Transaksjonstype</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, {
+                                transactionKind: event.target.value as BankTransactionKind
+                              })
+                            }
+                            value={selectedDecision.transactionKind}
+                          >
+                            {TRANSACTION_KIND_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Kategori</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { recurringCat: event.target.value, cat: event.target.value })
+                            }
+                            value={selectedDecision.recurringCat}
+                          >
+                            {CATEGORIES.map((category) => (
+                              <option key={category} value={category}>
+                                {category}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Tilhører</label>
+                          <select
+                            className={styles.select}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, {
+                                recurringWorkspaceId: event.target.value || null,
+                                workspaceId: event.target.value || null
+                              })
+                            }
+                            value={selectedRecurringWorkspaceValue}
+                          >
+                            <option value="">Uten prosjekt</option>
+                            {workspaces.map((workspace) => (
+                              <option key={workspace.id} value={workspace.id}>
+                                {workspace.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Dag i måneden</label>
+                          <input
+                            className={styles.input}
+                            max="31"
+                            min="1"
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, {
+                                recurringDayOfMonth: Number(event.target.value)
+                              })
+                            }
+                            step="1"
+                            type="number"
+                            value={selectedDecision.recurringDayOfMonth}
+                          />
+                        </div>
+                        <div className={styles.field}>
+                          <label className={styles.fieldLabel}>Lenke</label>
+                          <input
+                            className={styles.input}
+                            onChange={(event) =>
+                              updateDecision(selectedItem.id, { recurringLink: event.target.value })
+                            }
+                            placeholder="https://..."
+                            type="url"
+                            value={selectedDecision.recurringLink}
+                          />
+                        </div>
                       </div>
                     ) : null}
 

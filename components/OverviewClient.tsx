@@ -88,7 +88,7 @@ export function OverviewClient({
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="expense"
             entries={filteredMonthEntries}
-            recurringItems={[]}
+            recurringItems={recurringItems}
             workspaces={workspaces}
           />
         }
@@ -161,6 +161,7 @@ export function OverviewClient({
                   sourceWorkspace={
                     entry.sourceWorkspaceId ? workspaceMap.get(entry.sourceWorkspaceId) : undefined
                   }
+                  recurringItems={recurringItems}
                   workspaces={workspaces}
                 />
               ))}

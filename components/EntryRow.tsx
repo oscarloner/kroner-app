@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { DeleteItemButton } from "@/components/DeleteItemButton";
 import { EntryEditModal } from "@/components/EntryEditModal";
+import { RecurringLinkModal } from "@/components/RecurringLinkModal";
 import styles from "@/components/kroner.module.css";
 import { formatCurrency } from "@/lib/format";
-import type { Entry, Workspace } from "@/lib/types";
+import type { Entry, RecurringItem, Workspace } from "@/lib/types";
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
@@ -18,7 +19,8 @@ export function EntryRow({
   selected,
   onToggleSelect,
   deletable,
-  deleteKind
+  deleteKind,
+  recurringItems
 }: {
   entry: Entry;
   workspace?: Workspace;
@@ -29,9 +31,13 @@ export function EntryRow({
   deletable?: boolean;
   deleteKind?: "entry" | "recurring";
   workspaces?: Workspace[];
+  recurringItems?: RecurringItem[];
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [recurringOpen, setRecurringOpen] = useState(false);
   const isProjectedRecurring = entry.sourceKind === "recurring" || entry.isProjected;
+  const linkedRecurring =
+    recurringItems?.find((item) => item.id === entry.recurringItemId) ?? null;
   const typeClass = isProjectedRecurring
     ? entry.recurringType === "fixed"
       ? styles.typeFixed
@@ -84,6 +90,9 @@ export function EntryRow({
           <div className={styles.txMetaCompact}>
             <span className={styles.txMetaItem}>{entry.date}</span>
             <span className={cx(styles.typeBadge, typeClass)}>{typeLabel}</span>
+            {linkedRecurring ? (
+              <span className={styles.recurringLinkBadge}>Koblet til {linkedRecurring.name}</span>
+            ) : null}
             <span className={styles.workspaceBadge}>
               <span
                 className={styles.workspaceBadgeDot}
@@ -98,17 +107,27 @@ export function EntryRow({
         </div>
         <div className={styles.txDate}>{entry.date}</div>
         <div className={cx(styles.typeBadge, typeClass)}>{typeLabel}</div>
-        <div className={styles.workspaceBadge}>
-          <span
-            className={styles.workspaceBadgeDot}
-            style={{ backgroundColor: workspace?.color ?? "#787774" }}
-          />
-          {workspace?.name ?? "Uten prosjekt"}
+        <div className={styles.txCategoryCell}>
+          {linkedRecurring ? (
+            <span className={styles.recurringLinkBadge}>Koblet til {linkedRecurring.name}</span>
+          ) : null}
+          <div className={styles.workspaceBadge}>
+            <span
+              className={styles.workspaceBadgeDot}
+              style={{ backgroundColor: workspace?.color ?? "#787774" }}
+            />
+            {workspace?.name ?? "Uten prosjekt"}
+          </div>
         </div>
         <div className={cx(styles.amount, amountClass)}>
           {entry.type === "income" ? "+" : "−"} {formatCurrency(entry.amount)}
         </div>
         <div className={styles.txActionCell}>
+          {deleteKind === "entry" && !isProjectedRecurring && recurringItems?.length ? (
+            <button className={styles.editButton} onClick={() => setRecurringOpen(true)} type="button">
+              Fast post
+            </button>
+          ) : null}
           {deletable && deleteKind && !isProjectedRecurring && workspaces?.length ? (
             <button className={styles.editButton} onClick={() => setEditOpen(true)} type="button">
               Rediger
@@ -123,6 +142,16 @@ export function EntryRow({
       </div>
       {deletable && deleteKind && !isProjectedRecurring && workspaces?.length ? (
         <EntryEditModal entry={entry} onClose={() => setEditOpen(false)} open={editOpen} workspaces={workspaces} />
+      ) : null}
+      {deleteKind === "entry" && !isProjectedRecurring && recurringItems?.length && workspaces?.length ? (
+        <RecurringLinkModal
+          entry={entry}
+          linkedRecurring={linkedRecurring}
+          onClose={() => setRecurringOpen(false)}
+          open={recurringOpen}
+          recurringItems={recurringItems}
+          workspaces={workspaces}
+        />
       ) : null}
     </>
   );

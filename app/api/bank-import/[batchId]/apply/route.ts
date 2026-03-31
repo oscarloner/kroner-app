@@ -2,21 +2,29 @@ import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import {
   CATEGORIES,
+  type BankImportAction,
   type BankReportingTreatment,
   type BankTransactionKind,
   type BankTransactionLinkStatus,
-  type EntryType
+  type EntryType,
+  type RecurringType
 } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
 type ApplyDecision = {
   transactionId: string;
-  action: "import_new" | "link_existing" | "ignore" | "mark_transfer";
+  action: BankImportAction;
   type?: EntryType;
   cat?: string;
   workspaceId?: string | null;
   matchEntryId?: string | null;
   transactionKind?: BankTransactionKind;
+  recurringItemId?: string | null;
+  recurringName?: string;
+  recurringCat?: string;
+  recurringWorkspaceId?: string | null;
+  recurringLink?: string | null;
+  recurringDayOfMonth?: number;
 };
 
 type LinkDecision = {
@@ -49,6 +57,17 @@ type EntryRow = {
   note: string | null;
 };
 
+type RecurringRow = {
+  id: string;
+  account_id: string;
+  name: string;
+  amount: number;
+  type: RecurringType;
+  cat: string;
+  workspace_id: string | null;
+  link: string | null;
+};
+
 type BatchRow = {
   id: string;
   default_workspace_id: string | null;
@@ -70,6 +89,30 @@ function resolveCategory(value: string | undefined, fallback: string) {
   }
 
   return CATEGORIES.includes(value as (typeof CATEGORIES)[number]) ? value : fallback;
+}
+
+function recurringTypeForEntryType(type: EntryType): RecurringType {
+  return type === "income" ? "fixed" : "sub";
+}
+
+function resolveRecurringDefaults(args: {
+  decision: ApplyDecision;
+  transaction: BankTransactionRow;
+  batch: BatchRow;
+}) {
+  const workspaceId = normalizeWorkspaceId(
+    args.decision.recurringWorkspaceId ?? args.decision.workspaceId ?? args.batch.default_workspace_id ?? null
+  );
+  const cat = resolveCategory(args.decision.recurringCat ?? args.decision.cat, "Annet");
+  const dayOfMonth = args.decision.recurringDayOfMonth ?? Number(String(args.transaction.booking_date).slice(8, 10));
+
+  return {
+    workspaceId,
+    cat,
+    dayOfMonth,
+    name: args.decision.recurringName?.trim() || args.transaction.raw_label,
+    link: args.decision.recurringLink?.trim() || null
+  };
 }
 
 async function upsertLearningExample(args: {
@@ -113,6 +156,84 @@ async function upsertLearningExample(args: {
   if (error) {
     throw new Error(error.message);
   }
+}
+
+async function upsertImportedEntry(args: {
+  supabase: Awaited<ReturnType<typeof createClient>>;
+  accountId: string;
+  userId: string;
+  batchId: string;
+  transaction: BankTransactionRow;
+  type: EntryType;
+  cat: string;
+  workspaceId: string | null;
+  transactionKind: BankTransactionKind;
+  recurringItemId?: string | null;
+}) {
+  const { data: existingByFingerprint, error: existingError } = await args.supabase
+    .from("entries")
+    .select("id")
+    .eq("account_id", args.accountId)
+    .eq("source_fingerprint", args.transaction.source_fingerprint)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(existingError.message);
+  }
+
+  const payload = {
+    name: args.transaction.raw_label,
+    raw_name: args.transaction.raw_label,
+    amount: args.transaction.amount,
+    type: args.type,
+    cat: args.cat,
+    workspace_id: args.workspaceId,
+    recurring_item_id: args.recurringItemId ?? null,
+    source_workspace_id: args.transaction.source_workspace_id,
+    transaction_kind: args.transactionKind,
+    reporting_treatment: args.transaction.reporting_treatment,
+    date: args.transaction.booking_date,
+    source_type: "nordea_csv",
+    source_name: "Nordea",
+    source_fingerprint: args.transaction.source_fingerprint,
+    payment_type: args.transaction.payment_type,
+    import_batch_id: args.batchId,
+    match_status: "imported"
+  };
+
+  if (existingByFingerprint?.id) {
+    const { error } = await args.supabase
+      .from("entries")
+      .update(payload)
+      .eq("id", existingByFingerprint.id)
+      .eq("account_id", args.accountId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return existingByFingerprint.id;
+  }
+
+  const { data: insertedEntry, error: insertEntryError } = await args.supabase
+    .from("entries")
+    .insert({
+      account_id: args.accountId,
+      created_by: args.userId,
+      legacy_id: null,
+      ...payload,
+      link: null,
+      note: null,
+      source_transaction_id: null
+    })
+    .select("id")
+    .single();
+
+  if (insertEntryError || !insertedEntry) {
+    throw new Error(insertEntryError?.message || "Could not create entry from bank import.");
+  }
+
+  return insertedEntry.id;
 }
 
 export async function POST(
@@ -188,6 +309,9 @@ export async function POST(
         ].filter((value): value is string => Boolean(value))
       )
     );
+    const recurringIds = Array.from(
+      new Set(decisions.map((decision) => decision.recurringItemId).filter((value): value is string => Boolean(value)))
+    );
 
     const { data: linkedEntries, error: linkedEntryError } = await supabase
       .from("entries")
@@ -199,7 +323,18 @@ export async function POST(
       throw new Error(linkedEntryError.message);
     }
 
+    const { data: recurringRows, error: recurringError } = await supabase
+      .from("recurring_items")
+      .select("id, account_id, name, amount, type, cat, workspace_id, link")
+      .eq("account_id", account.accountId)
+      .in("id", recurringIds.length > 0 ? recurringIds : ["00000000-0000-0000-0000-000000000000"]);
+
+    if (recurringError) {
+      throw new Error(recurringError.message);
+    }
+
     const linkedEntryMap = new Map(((linkedEntries ?? []) as EntryRow[]).map((row) => [row.id, row]));
+    const recurringMap = new Map(((recurringRows ?? []) as RecurringRow[]).map((row) => [row.id, row]));
     const linkMap = new Map(((links ?? []) as TransactionLinkRow[]).map((row) => [row.id, row]));
     let appliedCount = 0;
 
@@ -321,118 +456,94 @@ export async function POST(
       const workspaceId = normalizeWorkspaceId(
         decision.workspaceId ?? ((batch as BatchRow).default_workspace_id ?? null)
       );
-      const { data: existingByFingerprint, error: existingError } = await supabase
-        .from("entries")
-        .select("id")
-        .eq("account_id", account.accountId)
-        .eq("source_fingerprint", transaction.source_fingerprint)
-        .maybeSingle();
 
-      if (existingError) {
-        throw new Error(existingError.message);
+      let recurringItemId: string | null = null;
+      let learningCategory = chosenCat;
+      let learningWorkspaceId = workspaceId;
+
+      if (decision.action === "link_recurring") {
+        if (!decision.recurringItemId) {
+          throw new Error(`Missing recurring item for ${transaction.raw_label}.`);
+        }
+
+        const recurring = recurringMap.get(decision.recurringItemId);
+        if (!recurring) {
+          throw new Error(`Could not load recurring item ${decision.recurringItemId}.`);
+        }
+
+        if (recurring.type !== recurringTypeForEntryType(chosenType)) {
+          throw new Error(`Recurring type mismatch for ${transaction.raw_label}.`);
+        }
+
+        recurringItemId = recurring.id;
+        learningCategory = recurring.cat;
+        learningWorkspaceId = recurring.workspace_id;
       }
 
-      const appliedEntryId = existingByFingerprint?.id ?? null;
-
-      if (appliedEntryId) {
-        const { error: updateExistingError } = await supabase
-          .from("entries")
-          .update({
-            name: transaction.raw_label,
-            raw_name: transaction.raw_label,
-            amount: transaction.amount,
-            type: chosenType,
-            cat: chosenCat,
-            workspace_id: workspaceId,
-            source_workspace_id: transaction.source_workspace_id,
-            transaction_kind: chosenTransactionKind,
-            reporting_treatment: transaction.reporting_treatment,
-            date: transaction.booking_date,
-            source_type: "nordea_csv",
-            source_name: "Nordea",
-            source_fingerprint: transaction.source_fingerprint,
-            payment_type: transaction.payment_type,
-            import_batch_id: batchId,
-            match_status: "imported"
-          })
-          .eq("id", appliedEntryId)
-          .eq("account_id", account.accountId);
-
-        if (updateExistingError) {
-          throw new Error(updateExistingError.message);
-        }
-
-        const { error: txUpdateError } = await supabase
-          .from("bank_transactions")
-          .update({
-            selected_action: "import_new",
-            applied_entry_id: appliedEntryId,
-            transaction_kind: chosenTransactionKind,
-            status: "applied"
-          })
-          .eq("id", transaction.id);
-
-        if (txUpdateError) {
-          throw new Error(txUpdateError.message);
-        }
-
-        await upsertLearningExample({
-          supabase,
-          accountId: account.accountId,
-          userId: account.user.id,
-          rawLabel: transaction.raw_label,
-          normalizedLabel: transaction.normalized_label,
-          paymentType: transaction.payment_type,
-          entryType: chosenType,
-          cat: chosenCat,
-          workspaceId,
-          sourceWorkspaceId: transaction.source_workspace_id,
-          transactionKind: chosenTransactionKind,
-          reportingTreatment: transaction.reporting_treatment
+      if (decision.action === "create_recurring") {
+        const recurringDefaults = resolveRecurringDefaults({
+          decision,
+          transaction,
+          batch: batch as BatchRow
         });
 
-        appliedCount += 1;
-        continue;
+        if (!recurringDefaults.name) {
+          throw new Error(`Missing recurring name for ${transaction.raw_label}.`);
+        }
+
+        if (
+          typeof recurringDefaults.dayOfMonth !== "number" ||
+          Number.isNaN(recurringDefaults.dayOfMonth) ||
+          recurringDefaults.dayOfMonth < 1 ||
+          recurringDefaults.dayOfMonth > 31
+        ) {
+          throw new Error(`Invalid recurring day for ${transaction.raw_label}.`);
+        }
+
+        const { data: createdRecurring, error: createRecurringError } = await supabase
+          .from("recurring_items")
+          .insert({
+            account_id: account.accountId,
+            created_by: account.user.id,
+            legacy_id: null,
+            name: recurringDefaults.name,
+            amount: transaction.amount,
+            type: recurringTypeForEntryType(chosenType),
+            cat: recurringDefaults.cat,
+            workspace_id: recurringDefaults.workspaceId,
+            link: recurringDefaults.link,
+            day_of_month: recurringDefaults.dayOfMonth
+          })
+          .select("id")
+          .single();
+
+        if (createRecurringError || !createdRecurring) {
+          throw new Error(createRecurringError?.message || `Could not create recurring item for ${transaction.raw_label}.`);
+        }
+
+        recurringItemId = createdRecurring.id;
+        learningCategory = recurringDefaults.cat;
+        learningWorkspaceId = recurringDefaults.workspaceId;
       }
 
-      const { data: insertedEntry, error: insertEntryError } = await supabase
-        .from("entries")
-        .insert({
-          account_id: account.accountId,
-          created_by: account.user.id,
-          legacy_id: null,
-          name: transaction.raw_label,
-          raw_name: transaction.raw_label,
-          amount: transaction.amount,
-          type: chosenType,
-          cat: chosenCat,
-          workspace_id: workspaceId,
-          source_workspace_id: transaction.source_workspace_id,
-          transaction_kind: chosenTransactionKind,
-          reporting_treatment: transaction.reporting_treatment,
-          date: transaction.booking_date,
-          link: null,
-          note: null,
-          source_type: "nordea_csv",
-          source_name: "Nordea",
-          source_transaction_id: null,
-          source_fingerprint: transaction.source_fingerprint,
-          payment_type: transaction.payment_type,
-          import_batch_id: batchId,
-          match_status: "imported"
-        })
-        .select("id")
-        .single();
-
-      if (insertEntryError || !insertedEntry) {
-        throw new Error(insertEntryError?.message || "Could not create entry from bank import.");
-      }
+      const appliedEntryId = await upsertImportedEntry({
+        supabase,
+        accountId: account.accountId,
+        userId: account.user.id,
+        batchId,
+        transaction,
+        type: chosenType,
+        cat: learningCategory,
+        workspaceId: learningWorkspaceId,
+        transactionKind: chosenTransactionKind,
+        recurringItemId
+      });
 
       const { error: updateTransactionError } = await supabase
         .from("bank_transactions")
         .update({
-          selected_action: "import_new",
-          applied_entry_id: insertedEntry.id,
+          selected_action: decision.action,
+          applied_entry_id: appliedEntryId,
           transaction_kind: chosenTransactionKind,
           status: "applied"
         })
@@ -450,8 +561,8 @@ export async function POST(
         normalizedLabel: transaction.normalized_label,
         paymentType: transaction.payment_type,
         entryType: chosenType,
-        cat: chosenCat,
-        workspaceId,
+        cat: learningCategory,
+        workspaceId: learningWorkspaceId,
         sourceWorkspaceId: transaction.source_workspace_id,
         transactionKind: chosenTransactionKind,
         reportingTreatment: transaction.reporting_treatment
@@ -491,7 +602,7 @@ export async function POST(
 
       if (linkDecision.status === "confirmed") {
         const linkedTransactions = [link.left_bank_transaction_id, link.right_bank_transaction_id]
-          .map((id) => transactionMap.get(id))
+          .map((transactionId) => transactionMap.get(transactionId))
           .filter((value): value is BankTransactionRow => Boolean(value));
 
         for (const transaction of linkedTransactions) {

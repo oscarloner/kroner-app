@@ -2,6 +2,44 @@ import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import { createClient } from "@/lib/supabase/server";
 
+type EntryKind = "entry" | "recurring";
+type EntryType = "income" | "expense";
+type RecurringType = "sub" | "fixed";
+
+function recurringTypeForEntryType(type: EntryType): RecurringType {
+  return type === "income" ? "fixed" : "sub";
+}
+
+async function requireItemMembership(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  table: "entries" | "recurring_items",
+  id: string,
+  userId: string
+) {
+  const { data: row, error } = await supabase.from(table).select("account_id").eq("id", id).maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!row) {
+    return { error: NextResponse.json({ message: "Not found." }, { status: 404 }) };
+  }
+
+  const { data: membership } = await supabase
+    .from("account_members")
+    .select("role")
+    .eq("account_id", row.account_id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!membership) {
+    return { error: NextResponse.json({ message: "No access." }, { status: 403 }) };
+  }
+
+  return { accountId: row.account_id };
+}
+
 export async function POST(request: Request) {
   try {
     const {
@@ -198,6 +236,7 @@ export async function PATCH(request: Request) {
       id,
       ids,
       kind,
+      operation,
       name,
       amount,
       cat,
@@ -206,11 +245,18 @@ export async function PATCH(request: Request) {
       dayOfMonth,
       date,
       link,
-      note
+      note,
+      recurringItemId,
+      recurringName,
+      recurringCat,
+      recurringWorkspaceId,
+      recurringLink,
+      recurringDayOfMonth
     } = (await request.json()) as {
       id?: string;
       ids?: string[];
-      kind?: "entry" | "recurring";
+      kind?: EntryKind;
+      operation?: "link_recurring" | "unlink_recurring" | "create_recurring_from_entry";
       name?: string;
       amount?: number;
       cat?: string;
@@ -220,6 +266,12 @@ export async function PATCH(request: Request) {
       date?: string;
       link?: string;
       note?: string;
+      recurringItemId?: string | null;
+      recurringName?: string;
+      recurringCat?: string;
+      recurringWorkspaceId?: string | null;
+      recurringLink?: string;
+      recurringDayOfMonth?: number;
     };
 
     const bulkTargetIds = Array.from(new Set((ids ?? []).filter((value): value is string => Boolean(value))));
@@ -290,6 +342,148 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "Missing id or kind." }, { status: 400 });
     }
 
+    const supabase = await createClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
+    }
+
+    if (operation) {
+      if (kind !== "entry") {
+        return NextResponse.json({ message: "Recurring links can only be managed on entries." }, { status: 400 });
+      }
+
+      const membershipResult = await requireItemMembership(supabase, "entries", id, user.id);
+      if (membershipResult.error) {
+        return membershipResult.error;
+      }
+
+      const { data: entry, error: entryError } = await supabase
+        .from("entries")
+        .select("id, account_id, name, amount, type, cat, workspace_id, date, link")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (entryError) {
+        throw entryError;
+      }
+
+      if (!entry) {
+        return NextResponse.json({ message: "Not found." }, { status: 404 });
+      }
+
+      const expectedRecurringType = recurringTypeForEntryType(entry.type as EntryType);
+
+      if (operation === "unlink_recurring") {
+        const { error } = await supabase
+          .from("entries")
+          .update({ recurring_item_id: null })
+          .eq("id", id)
+          .eq("account_id", entry.account_id);
+
+        if (error) {
+          throw error;
+        }
+
+        return NextResponse.json({ message: "Kobling fjernet." });
+      }
+
+      if (operation === "link_recurring") {
+        if (!recurringItemId) {
+          return NextResponse.json({ message: "Missing recurring item." }, { status: 400 });
+        }
+
+        const { data: recurring, error: recurringError } = await supabase
+          .from("recurring_items")
+          .select("id, account_id, type")
+          .eq("id", recurringItemId)
+          .maybeSingle();
+
+        if (recurringError) {
+          throw recurringError;
+        }
+
+        if (!recurring || recurring.account_id !== entry.account_id) {
+          return NextResponse.json({ message: "Fast post ikke funnet." }, { status: 404 });
+        }
+
+        if (recurring.type !== expectedRecurringType) {
+          return NextResponse.json({ message: "Type mismatch between transaction and recurring item." }, { status: 400 });
+        }
+
+        const { error } = await supabase
+          .from("entries")
+          .update({ recurring_item_id: recurring.id })
+          .eq("id", id)
+          .eq("account_id", entry.account_id);
+
+        if (error) {
+          throw error;
+        }
+
+        return NextResponse.json({ message: "Koblet til fast post." });
+      }
+
+      const nextRecurringName = recurringName?.trim() || entry.name;
+      const nextRecurringCat = recurringCat?.trim() || entry.cat;
+      const nextRecurringWorkspaceId = recurringWorkspaceId ?? entry.workspace_id ?? null;
+      const nextRecurringLink = recurringLink?.trim() || entry.link || null;
+      const nextRecurringDay = recurringDayOfMonth ?? Number(String(entry.date).slice(8, 10));
+
+      if (!nextRecurringName) {
+        return NextResponse.json({ message: "Missing recurring name." }, { status: 400 });
+      }
+
+      if (!nextRecurringCat) {
+        return NextResponse.json({ message: "Missing recurring category." }, { status: 400 });
+      }
+
+      if (
+        typeof nextRecurringDay !== "number" ||
+        Number.isNaN(nextRecurringDay) ||
+        nextRecurringDay < 1 ||
+        nextRecurringDay > 31
+      ) {
+        return NextResponse.json({ message: "Invalid recurring day." }, { status: 400 });
+      }
+
+      const { data: createdRecurring, error: createRecurringError } = await supabase
+        .from("recurring_items")
+        .insert({
+          account_id: entry.account_id,
+          created_by: user.id,
+          legacy_id: null,
+          name: nextRecurringName,
+          amount: entry.amount,
+          type: expectedRecurringType,
+          cat: nextRecurringCat,
+          workspace_id: nextRecurringWorkspaceId,
+          link: nextRecurringLink,
+          day_of_month: nextRecurringDay
+        })
+        .select("id")
+        .single();
+
+      if (createRecurringError || !createdRecurring) {
+        throw createRecurringError ?? new Error("Could not create recurring item.");
+      }
+
+      const { error: linkEntryError } = await supabase
+        .from("entries")
+        .update({ recurring_item_id: createdRecurring.id })
+        .eq("id", id)
+        .eq("account_id", entry.account_id);
+
+      if (linkEntryError) {
+        throw linkEntryError;
+      }
+
+      return NextResponse.json({ message: "Opprettet og koblet fast post." });
+    }
+
     if (!name?.trim()) {
       return NextResponse.json({ message: "Missing name." }, { status: 400 });
     }
@@ -302,36 +496,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ message: "Missing category." }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
-    }
-
     const table = kind === "entry" ? "entries" : "recurring_items";
-
-    const { data: row } = await supabase
-      .from(table)
-      .select("account_id")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (!row) {
-      return NextResponse.json({ message: "Not found." }, { status: 404 });
-    }
-
-    const { data: membership } = await supabase
-      .from("account_members")
-      .select("role")
-      .eq("account_id", row.account_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!membership) {
-      return NextResponse.json({ message: "No access." }, { status: 403 });
+    const membershipResult = await requireItemMembership(supabase, table, id, user.id);
+    if (membershipResult.error) {
+      return membershipResult.error;
     }
 
     const updatePayload: {

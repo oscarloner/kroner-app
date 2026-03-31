@@ -94,6 +94,7 @@ export type Entry = {
   matchStatus?: "manual" | "linked" | "imported" | "ignored" | "transfer" | null;
   transactionKind?: BankTransactionKind | null;
   reportingTreatment?: BankReportingTreatment | null;
+  recurringItemId?: string | null;
   sourceKind?: "entry" | "recurring";
   recurringType?: RecurringType | null;
   projectedFromRecurringId?: string | null;
@@ -199,7 +200,13 @@ export type BankImportBatch = {
   createdAt: string;
 };
 
-export type BankImportAction = "import_new" | "link_existing" | "ignore" | "mark_transfer";
+export type BankImportAction =
+  | "import_new"
+  | "link_existing"
+  | "create_recurring"
+  | "link_recurring"
+  | "ignore"
+  | "mark_transfer";
 export type BankImportReviewGroup = "new" | "probable_match" | "transfer" | "ignored_candidate";
 
 export type BankSuggestion = {

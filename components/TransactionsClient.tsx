@@ -195,7 +195,7 @@ export function TransactionsClient({
             currentWorkspaceId={currentWorkspaceId}
             defaultAddType="expense"
             entries={monthEntries}
-            recurringItems={[]}
+            recurringItems={recurringItems}
             workspaces={workspaces}
           />
         }
@@ -311,6 +311,7 @@ export function TransactionsClient({
                 sourceWorkspace={
                   entry.sourceWorkspaceId ? workspaceMap.get(entry.sourceWorkspaceId) : undefined
                 }
+                recurringItems={recurringItems}
                 workspaces={workspaces}
               />
             ))}

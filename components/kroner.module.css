@@ -798,6 +798,25 @@
   flex-shrink: 0;
 }
 
+.txCategoryCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.recurringLinkBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(29, 78, 216, 0.08);
+  color: #1d4ed8;
+  padding: 2px 8px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
 .amount {
   text-align: right;
   font-family: var(--font-mono);
@@ -810,6 +829,7 @@
   justify-content: flex-end;
   gap: 4px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .deleteWrap {
@@ -863,6 +883,32 @@
 .editButton:hover {
   background: var(--s2);
   color: var(--text);
+}
+
+.segmentedControl {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  background: var(--s1);
+}
+
+.segmentedButton {
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text2);
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.segmentedButtonActive {
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .deleteConfirm {

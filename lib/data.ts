@@ -22,6 +22,7 @@ type EntryRow = {
   type: "income" | "expense";
   cat: string;
   workspace_id: string | null;
+  recurring_item_id: string | null;
   source_workspace_id: string | null;
   date: string;
   link: string | null;
@@ -68,6 +69,7 @@ function mapEntry(row: EntryRow): Entry {
     type: row.type,
     cat: row.cat,
     workspaceId: row.workspace_id,
+    recurringItemId: row.recurring_item_id,
     sourceWorkspaceId: row.source_workspace_id,
     date: row.date,
     link: row.link,
@@ -108,13 +110,17 @@ function normalizeComparableName(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function isProjectedDuplicate(item: RecurringItem, actualEntries: Entry[]) {
+function isProjectedDuplicate(item: RecurringItem, actualEntries: Entry[], monthKey: string) {
   const projectedType = item.type === "fixed" ? "income" : "expense";
   const normalizedName = normalizeComparableName(item.name);
 
   return actualEntries.some((entry) => {
     if (entry.sourceKind === "recurring" || entry.isProjected) {
       return false;
+    }
+
+    if (entry.recurringItemId === item.id && entry.date.slice(0, 7) === monthKey) {
+      return true;
     }
 
     return (
@@ -232,7 +238,7 @@ export async function getDashboardData(
   let monthEntriesQuery = supabase
     .from("entries")
     .select(
-      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, source_workspace_id, date, link, note, created_at"
+      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, recurring_item_id, source_workspace_id, date, link, note, created_at"
     )
     .eq("account_id", accountContext.currentAccount.id)
     .gte("date", monthBounds.start)
@@ -257,7 +263,7 @@ export async function getDashboardData(
         let query = supabase
           .from("entries")
           .select(
-            "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, source_workspace_id, date, link, note, created_at"
+            "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, recurring_item_id, source_workspace_id, date, link, note, created_at"
           )
           .eq("account_id", accountContext.currentAccount.id)
           .order("date", { ascending: false });
@@ -313,7 +319,7 @@ export async function getDashboardData(
   const filteredEntries = applyEntryImportMetadata(historicalEntryRows, importMetadataRows);
   const filteredRecurringItems = (recurringRes.data ?? []).map(mapRecurring);
   const projectedMonthEntries = filteredRecurringItems
-    .filter((item) => !isProjectedDuplicate(item, actualMonthEntries))
+    .filter((item) => !isProjectedDuplicate(item, actualMonthEntries, selectedMonthKey))
     .map((item) => projectRecurringEntry(item, selectedMonthKey));
   const monthEntries = [...actualMonthEntries, ...projectedMonthEntries].sort(
     (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime()

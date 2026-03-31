@@ -92,6 +92,7 @@ alter table public.entries add column if not exists match_status text;
 alter table public.entries add column if not exists source_workspace_id uuid references public.workspaces(id) on delete set null;
 alter table public.entries add column if not exists transaction_kind text;
 alter table public.entries add column if not exists reporting_treatment text not null default 'normal';
+alter table public.entries add column if not exists recurring_item_id uuid references public.recurring_items(id) on delete set null;
 
 create table if not exists public.bank_import_batches (
   id uuid primary key default gen_random_uuid(),
@@ -136,10 +137,10 @@ create table if not exists public.bank_transactions (
   reporting_treatment text not null default 'normal',
   status text not null default 'pending' check (status in ('pending', 'applied', 'ignored', 'transfer', 'linked')),
   review_group text not null check (review_group in ('new', 'probable_match', 'transfer', 'ignored_candidate')),
-  suggested_action text not null check (suggested_action in ('import_new', 'link_existing', 'ignore', 'mark_transfer')),
+  suggested_action text not null check (suggested_action in ('import_new', 'link_existing', 'create_recurring', 'link_recurring', 'ignore', 'mark_transfer')),
   suggested_entry_id uuid references public.entries(id) on delete set null,
   suggested_match_score integer not null default 0,
-  selected_action text check (selected_action in ('import_new', 'link_existing', 'ignore', 'mark_transfer')),
+  selected_action text check (selected_action in ('import_new', 'link_existing', 'create_recurring', 'link_recurring', 'ignore', 'mark_transfer')),
   selected_entry_id uuid references public.entries(id) on delete set null,
   applied_entry_id uuid references public.entries(id) on delete set null,
   raw_data jsonb not null default '{}'::jsonb,
@@ -232,6 +233,30 @@ begin
       add constraint entries_import_batch_id_fkey
       foreign key (import_batch_id) references public.bank_import_batches(id) on delete set null;
   end if;
+end
+$$;
+
+do $$
+begin
+  alter table public.bank_transactions
+    drop constraint if exists bank_transactions_suggested_action_check;
+  alter table public.bank_transactions
+    add constraint bank_transactions_suggested_action_check
+    check (suggested_action in ('import_new', 'link_existing', 'create_recurring', 'link_recurring', 'ignore', 'mark_transfer'));
+exception
+  when duplicate_object then null;
+end
+$$;
+
+do $$
+begin
+  alter table public.bank_transactions
+    drop constraint if exists bank_transactions_selected_action_check;
+  alter table public.bank_transactions
+    add constraint bank_transactions_selected_action_check
+    check (selected_action in ('import_new', 'link_existing', 'create_recurring', 'link_recurring', 'ignore', 'mark_transfer'));
+exception
+  when duplicate_object then null;
 end
 $$;
 

@@ -21,6 +21,14 @@ function normalizeSuggestionType(type?: Suggestion["type"]): AddType | undefined
   return type;
 }
 
+function getPreferredDefaultWorkspaceId(workspaces: Workspace[]) {
+  return (
+    workspaces.find((workspace) => workspace.name.trim().toLowerCase() === "privat")?.id ??
+    workspaces[0]?.id ??
+    ""
+  );
+}
+
 export function AddModal({
   accountId,
   workspaces,
@@ -40,7 +48,8 @@ export function AddModal({
   defaultType?: AddType;
   allowedTypes?: AddType[];
 }) {
-  const defaultWorkspaceId = currentWorkspaceId === "all" ? workspaces[0]?.id ?? "" : currentWorkspaceId;
+  const defaultWorkspaceId =
+    currentWorkspaceId === "all" ? getPreferredDefaultWorkspaceId(workspaces) : currentWorkspaceId;
   const availableTypes = allowedTypes && allowedTypes.length > 0 ? allowedTypes : ([
     "income",
     "expense",

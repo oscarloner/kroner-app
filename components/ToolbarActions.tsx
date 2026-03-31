@@ -114,6 +114,7 @@ export function ToolbarActions({
         currentWorkspaceId={currentWorkspaceId}
         onClose={() => setBankImportOpen(false)}
         open={bankImportOpen}
+        recurringItems={recurringItems}
         workspaces={workspaces}
       />
       <AddModal
