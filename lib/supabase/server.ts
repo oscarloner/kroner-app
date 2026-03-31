@@ -15,8 +15,14 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll() {
-        // Server Components cannot mutate cookies directly.
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Server Components cannot set cookies — this is expected.
+        }
       }
     }
   });

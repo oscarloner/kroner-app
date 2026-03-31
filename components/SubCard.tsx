@@ -1,6 +1,11 @@
 import { DeleteItemButton } from "@/components/DeleteItemButton";
+import styles from "@/components/kroner.module.css";
 import { formatCurrency } from "@/lib/format";
 import type { RecurringItem, Workspace } from "@/lib/types";
+
+function cx(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
 
 export function SubCard({
   item,
@@ -12,25 +17,25 @@ export function SubCard({
   deletable?: boolean;
 }) {
   return (
-    <article className="subCard">
+    <article className={styles.subCard}>
       {deletable ? <DeleteItemButton id={item.id} kind="recurring" /> : null}
-      <div className="subCardTop">
+      <div className={styles.subCardTop}>
         <div>
-          <div className="subCardName">{item.name}</div>
-          <div className="subCardCat">{item.cat}</div>
+          <div className={styles.subCardName}>{item.name}</div>
+          <div className={styles.subCardCategory}>{item.cat}</div>
         </div>
-        <div className="workspaceChip">
+        <div className={styles.workspaceBadge}>
           <span
-            className="workspaceDot"
+            className={styles.workspaceBadgeDot}
             style={{ backgroundColor: workspace?.color ?? "#787774" }}
           />
           {workspace?.name ?? "Uten konto"}
         </div>
       </div>
-      <div className={item.type === "fixed" ? "amountFixed" : "amountNegative"}>
+      <div className={cx(styles.subCardAmount, item.type === "fixed" ? styles.fixedValue : styles.expenseValue)}>
         {formatCurrency(item.amount)}
       </div>
-      <div className="subCardYear">{formatCurrency(item.amount * 12)} / år</div>
+      <div className={styles.subCardSub}>{formatCurrency(item.amount * 12)} / år</div>
     </article>
   );
 }

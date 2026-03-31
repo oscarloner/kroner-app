@@ -1,0 +1,1133 @@
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.sidebar {
+  width: 230px;
+  min-width: 230px;
+  background: var(--s1);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebarTop {
+  padding: 14px 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.brandSub {
+  margin-top: 1px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.sidebarSection {
+  padding: 14px 8px 4px;
+}
+
+.sidebarSectionLabel {
+  padding: 0 8px;
+  margin-bottom: 4px;
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.sidebarNav {
+  display: grid;
+  gap: 4px;
+}
+
+.dropdownWrap {
+  position: relative;
+}
+
+.dropdownButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.dropdownButton:hover,
+.dropdownButtonOpen {
+  background: var(--s2);
+  color: var(--text);
+}
+
+.navIcon {
+  width: 18px;
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.7;
+}
+
+.dropdownLabel {
+  flex: 1;
+  text-align: left;
+}
+
+.dropdownArrow {
+  color: var(--text3);
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+
+.dropdownButtonOpen .dropdownArrow {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: none;
+  padding: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.dropdownMenuOpen {
+  display: block;
+  animation: dropdownIn 0.12s ease;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dropdownItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  color: var(--text2);
+  font-size: 13px;
+  text-decoration: none;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.dropdownItem:hover {
+  background: var(--s1);
+  color: var(--text);
+}
+
+.dropdownItemActive {
+  background: var(--s2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.monthButton {
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--s2);
+  color: var(--text2);
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.monthButton:hover {
+  background: var(--s3);
+}
+
+.monthLabel {
+  flex: 1;
+  text-align: center;
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.topbarTitle {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.headerWorkspaceWrap {
+  position: relative;
+}
+
+.headerWorkspaceButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 130px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--s1);
+  color: var(--text2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.headerWorkspaceButton:hover,
+.headerWorkspaceButtonOpen {
+  background: var(--s2);
+  color: var(--text);
+}
+
+.workspaceDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.workspaceLabel {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerWorkspaceMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: auto;
+  z-index: 50;
+  min-width: 180px;
+  display: none;
+  padding: 4px;
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  background: var(--bg);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.headerWorkspaceMenuOpen {
+  display: block;
+  animation: dropdownIn 0.12s ease;
+}
+
+.searchWrap {
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 160px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--s1);
+  padding: 5px 10px 5px 28px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.1s, width 0.2s, background-color 0.1s;
+}
+
+.searchInput:focus {
+  width: 220px;
+  border-color: var(--border2);
+  background: var(--bg);
+}
+
+.smallButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--s2);
+  color: var(--text2);
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.smallButton:hover {
+  background: var(--s3);
+  color: var(--text);
+}
+
+.primaryButtonSmall {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.1s;
+}
+
+.primaryButtonSmall:hover {
+  opacity: 0.82;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.page {
+  animation: pageIn 0.15s ease;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--s1);
+  padding: 12px 14px;
+}
+
+.cardLabel {
+  margin-bottom: 6px;
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.cardValue {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.incomeValue {
+  color: var(--income);
+}
+
+.expenseValue {
+  color: var(--expense);
+}
+
+.subValue {
+  color: var(--sub);
+}
+
+.fixedValue {
+  color: var(--fixed);
+}
+
+.cardSub {
+  margin-top: 2px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.sectionDivider {
+  margin: 20px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.filterChip {
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--text3);
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s;
+}
+
+.filterChip:hover {
+  background: var(--s1);
+  color: var(--text);
+}
+
+.filterChipActive {
+  background: var(--s3);
+  color: var(--text);
+}
+
+.tableHeader {
+  display: grid;
+  grid-template-columns: 1fr 90px 120px 100px 80px 40px;
+  gap: 10px;
+  padding: 6px 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.th {
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.thRight {
+  text-align: right;
+}
+
+.entryList {
+  border-bottom: 1px solid var(--border);
+}
+
+.txRow {
+  display: grid;
+  grid-template-columns: 1fr 90px 120px 100px 80px 40px;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  transition: background-color 0.08s;
+}
+
+.txRow:hover {
+  background: var(--s1);
+}
+
+.txRow:last-child {
+  border-bottom: none;
+}
+
+.txName {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.txNote {
+  margin-top: 1px;
+  color: var(--text3);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.txDate {
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.typeIncome {
+  background: var(--income-bg);
+  color: var(--income);
+}
+
+.typeExpense {
+  background: var(--expense-bg);
+  color: var(--expense);
+}
+
+.typeSub {
+  background: var(--sub-bg);
+  color: var(--sub);
+}
+
+.typeFixed {
+  background: var(--fixed-bg);
+  color: var(--fixed);
+}
+
+.workspaceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  border-radius: 3px;
+  background: var(--s2);
+  color: var(--text2);
+  padding: 2px 7px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.workspaceBadgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.amount {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.deleteButton {
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text3);
+  padding: 2px 5px;
+  opacity: 0;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.1s, color 0.1s, opacity 0.1s;
+}
+
+.txRow:hover .deleteButton,
+.subCard:hover .deleteButton {
+  opacity: 1;
+}
+
+.deleteButton:hover {
+  background: var(--expense-bg);
+  color: var(--expense);
+}
+
+.subGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+
+.subCard {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--s1);
+  padding: 14px;
+  transition: border-color 0.1s;
+}
+
+.subCard:hover {
+  border-color: var(--border2);
+}
+
+.subCardTop {
+  margin-bottom: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.subCardName {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.subCardCategory {
+  margin-top: 1px;
+  color: var(--text3);
+  font-size: 10px;
+}
+
+.subCardAmount {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.subCardSub {
+  margin-top: 2px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.emptyState {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.chartWrap {
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--s1);
+  padding: 16px;
+}
+
+.chartTitle {
+  margin-bottom: 12px;
+  color: var(--text3);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.barChart {
+  height: 160px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.barGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.barStack {
+  height: 130px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+}
+
+.bar {
+  width: 18px;
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+}
+
+.barIncome {
+  background: var(--income);
+}
+
+.barExpense {
+  background: var(--expense);
+}
+
+.barLabel {
+  color: var(--text3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.categoryList {
+  display: grid;
+  gap: 8px;
+}
+
+.categoryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.categoryRow:last-child {
+  border-bottom: none;
+}
+
+.categoryRow strong {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.overlayOpen {
+  display: flex;
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  margin: 20px;
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  animation: modalIn 0.15s ease;
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.modalTitle {
+  margin-bottom: 18px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.field {
+  margin-bottom: 12px;
+}
+
+.fieldLabel {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--text3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: var(--s1);
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.1s, background-color 0.1s;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #888;
+  background: var(--bg);
+}
+
+.textarea {
+  min-height: 52px;
+  resize: vertical;
+}
+
+.typeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.typePill {
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text2);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.typePill:hover {
+  background: var(--s1);
+}
+
+.typePillIncome {
+  background: var(--income-bg);
+  border-color: #9dd8c5;
+  color: var(--income);
+}
+
+.typePillExpense {
+  background: var(--expense-bg);
+  border-color: #f3b8b4;
+  color: var(--expense);
+}
+
+.typePillSub {
+  background: var(--sub-bg);
+  border-color: #e8c97a;
+  color: var(--sub);
+}
+
+.typePillFixed {
+  background: var(--fixed-bg);
+  border-color: #93c5fd;
+  color: var(--fixed);
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.modalPrimary {
+  flex: 1;
+  border: none;
+  border-radius: 4px;
+  background: #1a1a1a;
+  color: #fff;
+  padding: 9px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+.modalPrimary:hover {
+  opacity: 0.82;
+}
+
+.modalCancel {
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text2);
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.modalCancel:hover {
+  background: var(--s1);
+}
+
+.aiBox {
+  margin-bottom: 12px;
+  border: 1px solid #f0dfa0;
+  border-radius: 5px;
+  background: #fffbf0;
+  padding: 10px 12px;
+}
+
+.aiBoxLabel {
+  margin-bottom: 6px;
+  color: #9f6b00;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.aiBoxRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.aiChip {
+  border-radius: 3px;
+  background: #fef3c7;
+  color: #92400e;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.aiActions {
+  margin-left: auto;
+  display: flex;
+  gap: 5px;
+}
+
+.aiApprove {
+  border: 1px solid #9dd8c5;
+  border-radius: 3px;
+  background: var(--income-bg);
+  color: var(--income);
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.aiReject {
+  border: 1px solid #f3b8b4;
+  border-radius: 3px;
+  background: var(--expense-bg);
+  color: var(--expense);
+  padding: 3px 8px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cameraWrap {
+  position: relative;
+  margin-bottom: 12px;
+  border: 2px dashed var(--border2);
+  border-radius: 6px;
+  padding: 24px;
+  text-align: center;
+  transition: border-color 0.1s;
+}
+
+.cameraWrap:hover {
+  border-color: #888;
+}
+
+.cameraPreview {
+  display: block;
+  width: 100%;
+  max-height: 200px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  object-fit: contain;
+}
+
+.cameraLabel {
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.cameraInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.statusText {
+  margin-top: 12px;
+  color: var(--text3);
+  font-size: 12px;
+}
+
+.loadingText {
+  color: var(--sub);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebarTop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    border-bottom: none;
+    padding: 10px 14px;
+  }
+
+  .brandSub,
+  .sidebarSectionLabel,
+  .sidebarFooter {
+    display: none;
+  }
+
+  .sidebarSection {
+    padding: 8px 6px;
+    flex-shrink: 0;
+  }
+
+  .topbar {
+    height: 48px;
+    gap: 6px;
+    padding: 0 12px;
+  }
+
+  .topbarTitle {
+    font-size: 12px;
+  }
+
+  .searchInput {
+    width: 120px;
+  }
+
+  .searchInput:focus {
+    width: 140px;
+  }
+
+  .content {
+    padding: 14px;
+  }
+
+  .cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .subGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .tableHeader {
+    display: none;
+  }
+
+  .txRow {
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+  }
+
+  .txDate,
+  .typeBadge,
+  .workspaceBadge,
+  .deleteButton {
+    display: none;
+  }
+}

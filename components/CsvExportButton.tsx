@@ -6,12 +6,16 @@ export function CsvExportButton({
   entries,
   recurringItems,
   workspaces,
-  filename
+  filename,
+  className,
+  label = "↓ CSV"
 }: {
   entries: Entry[];
   recurringItems: RecurringItem[];
   workspaces: Workspace[];
   filename: string;
+  className?: string;
+  label?: string;
 }) {
   function exportCsv() {
     const workspaceMap = Object.fromEntries(
@@ -44,8 +48,8 @@ export function CsvExportButton({
   }
 
   return (
-    <button className="toolbarButton" onClick={exportCsv} type="button">
-      CSV
+    <button className={className} onClick={exportCsv} type="button">
+      {label}
     </button>
   );
 }

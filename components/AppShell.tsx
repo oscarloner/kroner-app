@@ -1,37 +1,20 @@
-import type { AccountRole, AppAccount } from "@/lib/types";
-import { Header } from "@/components/Header";
+import type { AppAccount } from "@/lib/types";
 import { Sidebar } from "@/components/Sidebar";
+import styles from "@/components/kroner.module.css";
 
 export function AppShell({
   children,
   currentPath,
-  title,
-  userEmail,
   currentAccount,
-  currentRole,
-  currentWorkspaceName
 }: {
   children: React.ReactNode;
   currentPath: string;
-  title: string;
-  userEmail: string;
   currentAccount: AppAccount;
-  currentRole: AccountRole;
-  currentWorkspaceName?: string;
 }) {
   return (
-    <div className="appShell">
+    <div className={styles.shell}>
       <Sidebar currentPath={currentPath} currentAccountSlug={currentAccount.slug} />
-      <main className="mainContent">
-        <Header
-          title={title}
-          userEmail={userEmail}
-          currentAccount={currentAccount}
-          currentRole={currentRole}
-          currentWorkspaceName={currentWorkspaceName}
-        />
-        {children}
-      </main>
+      <main className={styles.main}>{children}</main>
     </div>
   );
 }

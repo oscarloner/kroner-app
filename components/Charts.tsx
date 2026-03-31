@@ -1,3 +1,4 @@
+import styles from "@/components/kroner.module.css";
 import { formatCurrency } from "@/lib/format";
 import type { Entry } from "@/lib/types";
 
@@ -36,10 +37,7 @@ export function Charts({ entries }: { entries: Entry[] }) {
     return { ...month, income, expense };
   });
 
-  const maxValue = Math.max(
-    1,
-    ...totals.flatMap((month) => [month.income, month.expense])
-  );
+  const maxValue = Math.max(1, ...totals.flatMap((month) => [month.income, month.expense]));
 
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
@@ -60,37 +58,38 @@ export function Charts({ entries }: { entries: Entry[] }) {
   ).sort((left, right) => right[1] - left[1]);
 
   return (
-    <div className="chartGrid">
-      <section className="panel">
-        <div className="panelTitle">Siste 6 måneder</div>
-        <div className="barChart">
+    <>
+      <section className={styles.chartWrap}>
+        <div className={styles.chartTitle}>Månedlig oversikt — siste 6 måneder</div>
+        <div className={styles.barChart}>
           {totals.map((month) => (
-            <div key={month.key} className="barGroup">
-              <div className="barStack">
+            <div key={month.key} className={styles.barGroup}>
+              <div className={styles.barStack}>
                 <div
-                  className="bar incomeBar"
+                  className={`${styles.bar} ${styles.barIncome}`}
                   style={{ height: `${(month.income / maxValue) * 100}%` }}
                   title={`Inntekter: ${formatCurrency(month.income)}`}
                 />
                 <div
-                  className="bar expenseBar"
+                  className={`${styles.bar} ${styles.barExpense}`}
                   style={{ height: `${(month.expense / maxValue) * 100}%` }}
                   title={`Utgifter: ${formatCurrency(month.expense)}`}
                 />
               </div>
-              <div className="barLabel">{month.label}</div>
+              <div className={styles.barLabel}>{month.label}</div>
             </div>
           ))}
         </div>
       </section>
-      <section className="panel">
-        <div className="panelTitle">Utgiftsfordeling denne måneden</div>
-        <div className="categoryList">
+
+      <section className={styles.chartWrap}>
+        <div className={styles.chartTitle}>Utgiftsfordeling denne måneden</div>
+        <div className={styles.categoryList}>
           {categoryTotals.length === 0 ? (
-            <div className="emptyState">Ingen utgifter denne måneden.</div>
+            <div className={styles.emptyState}>Ingen utgifter denne måneden.</div>
           ) : (
             categoryTotals.map(([category, amount]) => (
-              <div className="categoryRow" key={category}>
+              <div className={styles.categoryRow} key={category}>
                 <span>{category}</span>
                 <strong>{formatCurrency(amount)}</strong>
               </div>
@@ -98,6 +97,6 @@ export function Charts({ entries }: { entries: Entry[] }) {
           )}
         </div>
       </section>
-    </div>
+    </>
   );
 }

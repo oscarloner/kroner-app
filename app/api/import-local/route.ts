@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAccountAccess } from "@/lib/accounts";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_WORKSPACES, type LegacyImportPayload } from "@/lib/types";
+import type { LegacyImportPayload } from "@/lib/types";
 
 function fallbackDate() {
   return new Date().toISOString().slice(0, 10);
@@ -22,13 +22,7 @@ export async function POST(request: Request) {
     const supabase = await createClient();
     const user = account.user;
 
-    const workspaces = (payload.workspaces ?? []).length
-      ? payload.workspaces
-      : DEFAULT_WORKSPACES.map((workspace) => ({
-          id: workspace.legacyId,
-          name: workspace.name,
-          color: workspace.color
-        }));
+    const workspaces = payload.workspaces ?? [];
 
     await supabase.from("entries").delete().eq("account_id", account.accountId);
     await supabase.from("recurring_items").delete().eq("account_id", account.accountId);
@@ -100,7 +94,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({
-      message: `Importerte ${entryRows.length} transaksjoner, ${recurringRows.length} faste poster og ${workspaceRows.length} kontoer.`
+      message: `Importerte ${entryRows.length} transaksjoner, ${recurringRows.length} faste poster og ${workspaceRows.length} workspaces.`
     });
   } catch (error) {
     return NextResponse.json(

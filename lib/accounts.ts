@@ -7,13 +7,14 @@ type MembershipRow = {
   user_id: string;
   role: AccountRole;
   created_at: string;
-  accounts: Array<{
-    id: string;
-    slug: string;
-    name: string;
-    created_by: string;
-    created_at: string;
-  }>;
+};
+
+type AccountRow = {
+  id: string;
+  slug: string;
+  name: string;
+  created_by: string;
+  created_at: string;
 };
 
 export async function getAccountContext(preferredSlug?: string) {
@@ -26,9 +27,7 @@ export async function getAccountContext(preferredSlug?: string) {
 
   const membershipsRes = await supabase
     .from("account_members")
-    .select(
-      "account_id, user_id, role, created_at, accounts!inner(id, slug, name, created_by, created_at)"
-    )
+    .select("account_id, user_id, role, created_at")
     .eq("user_id", user.id);
 
   if (membershipsRes.error) {
@@ -40,11 +39,19 @@ export async function getAccountContext(preferredSlug?: string) {
     throw new Error("User has no account memberships.");
   }
 
-  const accounts: AppAccount[] = memberships
-    .map((membership) => membership.accounts[0])
-    .filter(Boolean)
-    .sort((left, right) => left.created_at.localeCompare(right.created_at))
-    .map((account) => ({
+  const accountIds = memberships.map((membership) => membership.account_id);
+
+  const accountsRes = await supabase
+    .from("accounts")
+    .select("id, slug, name, created_by, created_at")
+    .in("id", accountIds)
+    .order("created_at");
+
+  if (accountsRes.error) {
+    throw new Error(accountsRes.error.message);
+  }
+
+  const accounts: AppAccount[] = ((accountsRes.data ?? []) as AccountRow[]).map((account) => ({
       id: account.id,
       slug: account.slug,
       name: account.name,

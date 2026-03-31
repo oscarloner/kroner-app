@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import styles from "@/components/kroner.module.css";
 
 export function DeleteItemButton({
   id,
@@ -40,7 +41,7 @@ export function DeleteItemButton({
   }
 
   return (
-    <button className="ghostDeleteButton" onClick={handleDelete} disabled={busy} type="button">
+    <button className={styles.deleteButton} onClick={handleDelete} disabled={busy} type="button">
       {busy ? "…" : "×"}
     </button>
   );

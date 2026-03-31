@@ -26,13 +26,6 @@ export const CATEGORIES = [
   "Annet"
 ] as const;
 
-export const DEFAULT_WORKSPACES = [
-  { legacyId: "privat", name: "Privat", color: "#787774" },
-  { legacyId: "applaus", name: "Applaus Creative", color: "#0060b0" },
-  { legacyId: "aett", name: "Aett Events", color: "#0f7b55" },
-  { legacyId: "texicon", name: "Texicon", color: "#9f6b00" }
-] as const;
-
 export type EntryType = "income" | "expense";
 export type RecurringType = "sub" | "fixed";
 export type AccountRole = "owner" | "admin" | "member";

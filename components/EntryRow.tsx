@@ -1,6 +1,11 @@
 import { DeleteItemButton } from "@/components/DeleteItemButton";
+import styles from "@/components/kroner.module.css";
 import { formatCurrency } from "@/lib/format";
 import type { Entry, Workspace } from "@/lib/types";
+
+function cx(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
 
 export function EntryRow({
   entry,
@@ -13,24 +18,27 @@ export function EntryRow({
   deletable?: boolean;
   deleteKind?: "entry" | "recurring";
 }) {
-  const isIncome = entry.type === "income";
+  const typeClass = entry.type === "income" ? styles.typeIncome : styles.typeExpense;
+  const amountClass = entry.type === "income" ? styles.incomeValue : styles.expenseValue;
+  const typeLabel = entry.type === "income" ? "Inntekt" : "Utgift";
 
   return (
-    <div className="entryRow">
+    <div className={styles.txRow}>
       <div>
-        <div className="entryName">{entry.name}</div>
-        <div className="entrySub">{entry.cat}</div>
+        <div className={styles.txName}>{entry.name}</div>
+        {entry.note ? <div className={styles.txNote}>{entry.note}</div> : null}
       </div>
-      <div className="entryDate">{entry.date}</div>
-      <div className="workspaceChip">
+      <div className={styles.txDate}>{entry.date}</div>
+      <div className={cx(styles.typeBadge, typeClass)}>{typeLabel}</div>
+      <div className={styles.workspaceBadge}>
         <span
-          className="workspaceDot"
+          className={styles.workspaceBadgeDot}
           style={{ backgroundColor: workspace?.color ?? "#787774" }}
         />
         {workspace?.name ?? "Uten konto"}
       </div>
-      <div className={isIncome ? "amountPositive" : "amountNegative"}>
-        {isIncome ? "+" : "−"} {formatCurrency(entry.amount)}
+      <div className={cx(styles.amount, amountClass)}>
+        {entry.type === "income" ? "+" : "−"} {formatCurrency(entry.amount)}
       </div>
       {deletable && deleteKind ? <DeleteItemButton id={entry.id} kind={deleteKind} /> : <div />}
     </div>

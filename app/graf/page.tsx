@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/AppShell";
-import { Charts } from "@/components/Charts";
+import { GraphPageClient } from "@/components/GraphPageClient";
 import { getDashboardData } from "@/lib/data";
 
 export default async function GraphPage({
@@ -11,15 +11,19 @@ export default async function GraphPage({
   const data = await getDashboardData(params?.account, params?.workspace);
 
   return (
-    <AppShell
-      currentPath="/graf"
-      title="Graf"
-      userEmail={data.userEmail}
-      currentAccount={data.currentAccount}
-      currentRole={data.currentRole}
-      currentWorkspaceName={data.currentWorkspace?.name}
-    >
-      <Charts entries={data.entries} />
+    <AppShell currentPath="/graf" currentAccount={data.currentAccount}>
+      <GraphPageClient
+        accountId={data.currentAccount.id}
+        accountSlug={data.currentAccount.slug}
+        currentAccountName={data.currentAccount.name}
+        currentPath="/graf"
+        currentWorkspaceId={data.currentWorkspaceId}
+        currentWorkspaceName={data.currentWorkspace?.name}
+        entries={data.entries}
+        recurringItems={data.recurringItems}
+        title="Graf"
+        workspaces={data.workspaces}
+      />
     </AppShell>
   );
 }

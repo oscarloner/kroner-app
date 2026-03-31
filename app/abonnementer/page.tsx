@@ -1,5 +1,5 @@
 import { AppShell } from "@/components/AppShell";
-import { SubCard } from "@/components/SubCard";
+import { RecurringItemsClient } from "@/components/RecurringItemsClient";
 import { getDashboardData } from "@/lib/data";
 
 export default async function SubscriptionsPage({
@@ -9,33 +9,23 @@ export default async function SubscriptionsPage({
 }) {
   const params = await searchParams;
   const data = await getDashboardData(params?.account, params?.workspace);
-  const workspaceMap = new Map(data.workspaces.map((workspace) => [workspace.id, workspace]));
-  const items = data.recurringItems.filter((item) => item.type === "sub");
 
   return (
-    <AppShell
-      currentPath="/abonnementer"
-      title="Abonnementer"
-      userEmail={data.userEmail}
-      currentAccount={data.currentAccount}
-      currentRole={data.currentRole}
-      currentWorkspaceName={data.currentWorkspace?.name}
-    >
-      <section className="subGrid">
-        {items.map((item) => (
-          <SubCard
-            key={item.id}
-            item={item}
-            workspace={item.workspaceId ? workspaceMap.get(item.workspaceId) : undefined}
-            deletable
-          />
-        ))}
-        {items.length === 0 ? (
-          <section className="panel">
-            <div className="emptyState">Ingen abonnementer ennå.</div>
-          </section>
-        ) : null}
-      </section>
+    <AppShell currentPath="/abonnementer" currentAccount={data.currentAccount}>
+      <RecurringItemsClient
+        accountId={data.currentAccount.id}
+        accountSlug={data.currentAccount.slug}
+        currentAccountName={data.currentAccount.name}
+        currentPath="/abonnementer"
+        currentWorkspaceId={data.currentWorkspaceId}
+        currentWorkspaceName={data.currentWorkspace?.name}
+        emptyLabel="Ingen abonnementer ennå."
+        entries={data.entries}
+        recurringItems={data.recurringItems}
+        title="Abonnementer"
+        type="sub"
+        workspaces={data.workspaces}
+      />
     </AppShell>
   );
 }

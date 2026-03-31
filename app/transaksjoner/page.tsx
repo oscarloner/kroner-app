@@ -11,15 +11,19 @@ export default async function TransactionsPage({
   const data = await getDashboardData(params?.account, params?.workspace);
 
   return (
-    <AppShell
-      currentPath="/transaksjoner"
-      title="Transaksjoner"
-      userEmail={data.userEmail}
-      currentAccount={data.currentAccount}
-      currentRole={data.currentRole}
-      currentWorkspaceName={data.currentWorkspace?.name}
-    >
-      <TransactionsClient entries={data.entries} workspaces={data.workspaces} />
+    <AppShell currentPath="/transaksjoner" currentAccount={data.currentAccount}>
+      <TransactionsClient
+        accountId={data.currentAccount.id}
+        accountSlug={data.currentAccount.slug}
+        currentAccountName={data.currentAccount.name}
+        currentPath="/transaksjoner"
+        currentWorkspaceId={data.currentWorkspaceId}
+        currentWorkspaceName={data.currentWorkspace?.name}
+        entries={data.entries}
+        recurringItems={data.recurringItems}
+        title="Transaksjoner"
+        workspaces={data.workspaces}
+      />
     </AppShell>
   );
 }

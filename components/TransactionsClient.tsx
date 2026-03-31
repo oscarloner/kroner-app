@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import { EntryRow } from "@/components/EntryRow";
-import type { Entry, Workspace } from "@/lib/types";
+import styles from "@/components/kroner.module.css";
+import { ToolbarActions } from "@/components/ToolbarActions";
+import { Topbar } from "@/components/Topbar";
+import type { Entry, RecurringItem, Workspace } from "@/lib/types";
 
 const FILTERS = [
   { value: "all", label: "Alle" },
-  { value: "income", label: "Inntekt" },
-  { value: "expense", label: "Utgift" },
+  { value: "income", label: "↑ Inntekt" },
+  { value: "expense", label: "↓ Utgift" },
   { value: "Fakturainntekter", label: "Faktura" },
   { value: "Lønn & honorar", label: "Lønn" },
   { value: "Programvare & verktøy", label: "Programvare" },
@@ -17,11 +20,31 @@ const FILTERS = [
   { value: "Annet", label: "Annet" }
 ] as const;
 
+function cx(...values: Array<string | false | undefined>) {
+  return values.filter(Boolean).join(" ");
+}
+
 export function TransactionsClient({
+  title,
+  currentPath,
+  accountId,
+  accountSlug,
+  currentAccountName,
+  currentWorkspaceId,
+  currentWorkspaceName,
   entries,
+  recurringItems,
   workspaces
 }: {
+  title: string;
+  currentPath: string;
+  accountId: string;
+  accountSlug: string;
+  currentAccountName: string;
+  currentWorkspaceId: string;
+  currentWorkspaceName?: string;
   entries: Entry[];
+  recurringItems: RecurringItem[];
   workspaces: Workspace[];
 }) {
   const [query, setQuery] = useState("");
@@ -60,40 +83,67 @@ export function TransactionsClient({
   }, [entries, query, filter]);
 
   return (
-    <section className="panel">
-      <div className="panelTitle">Alle transaksjoner</div>
-      <input
-        className="searchInput"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Søk i transaksjoner…"
-      />
-      <div className="filterRow">
-        {FILTERS.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            className={item.value === filter ? "filterChip active" : "filterChip"}
-            onClick={() => setFilter(item.value)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <div className="entryList">
-        {filteredEntries.map((entry) => (
-          <EntryRow
-            key={entry.id}
-            entry={entry}
-            workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
-            deletable
-            deleteKind="entry"
+    <>
+      <Topbar
+        accountSlug={accountSlug}
+        actions={
+          <ToolbarActions
+            accountId={accountId}
+            csvFilename="kroner-transaksjoner.csv"
+            currentWorkspaceId={currentWorkspaceId}
+            entries={entries}
+            recurringItems={recurringItems}
+            workspaces={workspaces}
           />
-        ))}
-        {filteredEntries.length === 0 ? (
-          <div className="emptyState">Ingen transaksjoner matcher filtrene dine.</div>
-        ) : null}
+        }
+        currentAccountName={currentAccountName}
+        currentPath={currentPath}
+        currentWorkspaceId={currentWorkspaceId}
+        currentWorkspaceName={currentWorkspaceName}
+        onSearchChange={setQuery}
+        searchValue={query}
+        title={title}
+        workspaces={workspaces}
+      />
+      <div className={styles.content}>
+        <div className={styles.page}>
+          <div className={styles.filterRow}>
+            {FILTERS.map((item) => (
+              <button
+                key={item.value}
+                className={cx(styles.filterChip, item.value === filter && styles.filterChipActive)}
+                onClick={() => setFilter(item.value)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.tableHeader}>
+            <div className={styles.th}>Navn</div>
+            <div className={styles.th}>Dato</div>
+            <div className={styles.th}>Kategori</div>
+            <div className={styles.th}>Konto</div>
+            <div className={cx(styles.th, styles.thRight)}>Beløp</div>
+            <div className={styles.th} />
+          </div>
+          <div className={styles.entryList}>
+            {filteredEntries.map((entry) => (
+              <EntryRow
+                key={entry.id}
+                deleteKind="entry"
+                deletable
+                entry={entry}
+                workspace={entry.workspaceId ? workspaceMap.get(entry.workspaceId) : undefined}
+              />
+            ))}
+            {filteredEntries.length === 0 ? (
+              <div className={styles.emptyState}>Ingen transaksjoner matcher filtrene dine.</div>
+            ) : null}
+          </div>
+        </div>
       </div>
-    </section>
+    </>
   );
 }
