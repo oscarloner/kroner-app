@@ -80,12 +80,12 @@ export function ScanModal({
 
   return (
     <div
-      className={`${styles.overlay} ${styles.overlayOpen} ${styles.dialogOverlay}`}
+      className={`${styles.overlay} ${styles.overlayOpen} ${styles.dialogOverlay} ${styles.fullScreenDialogOverlay}`}
       onClick={handleClose}
       role="presentation"
     >
       <div
-        className={`${styles.modal} ${styles.dialogModal}`}
+        className={`${styles.modal} ${styles.dialogModal} ${styles.fullScreenDialogModal}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

@@ -164,19 +164,19 @@ export function AddModal({
 
   return (
     <div
-      className={cx(styles.overlay, styles.overlayOpen, styles.dialogOverlay)}
+      className={cx(styles.overlay, styles.overlayOpen, styles.dialogOverlay, styles.fullScreenDialogOverlay)}
       onClick={onClose}
       role="presentation"
     >
       <div
-        className={cx(styles.modal, styles.dialogModal)}
+        className={cx(styles.modal, styles.dialogModal, styles.fullScreenDialogModal)}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         <div className={styles.modalTitle}>Legg til transaksjon</div>
 
-        <form onSubmit={handleSubmit}>
+        <form className={styles.modalForm} onSubmit={handleSubmit}>
           <div className={styles.typeRow}>
             {[
               { value: "income", label: "↑ Inntekt", className: styles.typePillIncome },
