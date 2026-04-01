@@ -13,6 +13,7 @@ function cx(...values: Array<string | false | undefined>) {
 }
 
 export function Topbar({
+  accountId,
   title,
   currentPath,
   accountSlug,
@@ -27,6 +28,7 @@ export function Topbar({
   onSearchChange,
   actions
 }: {
+  accountId: string;
   title: string;
   currentPath: string;
   accountSlug: string;
@@ -43,6 +45,11 @@ export function Topbar({
 }) {
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceColor, setWorkspaceColor] = useState("#787774");
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceStatus, setWorkspaceStatus] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const desktopSearchRef = useRef<HTMLInputElement | null>(null);
   const mobileSearchRef = useRef<HTMLInputElement | null>(null);
@@ -66,6 +73,45 @@ export function Topbar({
     window.addEventListener("mousedown", handleClick);
     return () => window.removeEventListener("mousedown", handleClick);
   }, []);
+
+  async function handleCreateWorkspace(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!workspaceName.trim() || workspaceBusy) {
+      return;
+    }
+
+    setWorkspaceBusy(true);
+    setWorkspaceStatus("");
+
+    try {
+      const response = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          accountId,
+          name: workspaceName,
+          color: workspaceColor
+        })
+      });
+
+      const json = (await response.json().catch(() => ({}))) as { message?: string };
+
+      if (!response.ok) {
+        throw new Error(json.message || "Kunne ikke opprette prosjekt.");
+      }
+
+      setWorkspaceName("");
+      setWorkspaceStatus("");
+      window.location.reload();
+    } catch (error) {
+      setWorkspaceStatus(error instanceof Error ? error.message : "Kunne ikke opprette prosjekt.");
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!sheetOpen) {
@@ -147,6 +193,39 @@ export function Topbar({
                 {workspace.name}
               </Link>
             ))}
+            <button
+              className={styles.dropdownAction}
+              onClick={() => {
+                setCreateWorkspaceOpen((value) => !value);
+                setWorkspaceStatus("");
+              }}
+              type="button"
+            >
+              + Nytt prosjekt
+            </button>
+            {createWorkspaceOpen ? (
+              <form className={styles.workspaceCreateForm} onSubmit={handleCreateWorkspace}>
+                <input
+                  className={styles.input}
+                  onChange={(event) => setWorkspaceName(event.target.value)}
+                  placeholder="Privat"
+                  value={workspaceName}
+                />
+                <div className={styles.workspaceCreateRow}>
+                  <input
+                    aria-label="Prosjektfarge"
+                    className={styles.workspaceColorInput}
+                    onChange={(event) => setWorkspaceColor(event.target.value)}
+                    type="color"
+                    value={workspaceColor}
+                  />
+                  <button className={styles.smallButton} disabled={workspaceBusy} type="submit">
+                    {workspaceBusy ? "Oppretter..." : "Opprett"}
+                  </button>
+                </div>
+                {workspaceStatus ? <div className={styles.statusText}>{workspaceStatus}</div> : null}
+              </form>
+            ) : null}
           </div>
         </div>
         <div className={styles.spacer} />
@@ -253,8 +332,8 @@ export function Topbar({
             </div>
 
             <div className={styles.sheetSection}>
-              <div className={styles.sheetSectionLabel}>Prosjekt</div>
-              <div className={styles.sheetChipList}>
+            <div className={styles.sheetSectionLabel}>Prosjekt</div>
+            <div className={styles.sheetChipList}>
                 <Link
                   className={cx(styles.sheetChip, currentWorkspaceId === "all" && styles.sheetChipActive)}
                   href={buildAppHref(currentPath, { accountSlug, monthKey }) as never}
@@ -284,6 +363,39 @@ export function Topbar({
                   </Link>
                 ))}
               </div>
+              <button
+                className={styles.smallButton}
+                onClick={() => {
+                  setCreateWorkspaceOpen((value) => !value);
+                  setWorkspaceStatus("");
+                }}
+                type="button"
+              >
+                + Nytt prosjekt
+              </button>
+              {createWorkspaceOpen ? (
+                <form className={styles.workspaceCreateForm} onSubmit={handleCreateWorkspace}>
+                  <input
+                    className={styles.input}
+                    onChange={(event) => setWorkspaceName(event.target.value)}
+                    placeholder="Privat"
+                    value={workspaceName}
+                  />
+                  <div className={styles.workspaceCreateRow}>
+                    <input
+                      aria-label="Prosjektfarge"
+                      className={styles.workspaceColorInput}
+                      onChange={(event) => setWorkspaceColor(event.target.value)}
+                      type="color"
+                      value={workspaceColor}
+                    />
+                    <button className={styles.smallButton} disabled={workspaceBusy} type="submit">
+                      {workspaceBusy ? "Oppretter..." : "Opprett"}
+                    </button>
+                  </div>
+                  {workspaceStatus ? <div className={styles.statusText}>{workspaceStatus}</div> : null}
+                </form>
+              ) : null}
             </div>
 
             <div className={styles.sheetSection}>

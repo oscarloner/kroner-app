@@ -63,6 +63,7 @@ export function RecurringItemsClient({
   return (
     <>
       <Topbar
+        accountId={accountId}
         accountSlug={accountSlug}
         accounts={accounts}
         actions={

@@ -5,23 +5,26 @@ import { EntryRow } from "@/components/EntryRow";
 import styles from "@/components/kroner.module.css";
 import { ToolbarActions } from "@/components/ToolbarActions";
 import { Topbar } from "@/components/Topbar";
-import { CATEGORIES, type AppAccount, type Entry, type RecurringItem, type Workspace } from "@/lib/types";
+import type { AppAccount, Entry, RecurringItem, Workspace } from "@/lib/types";
 
 const FILTERS = [
   { value: "all", label: "Alle" },
+  { value: "needs_attention", label: "Trenger avklaring" },
   { value: "income", label: "↑ Inntekt" },
   { value: "expense", label: "↓ Utgift" },
-  { value: "Fakturainntekter", label: "Faktura" },
-  { value: "Lønn & honorar", label: "Lønn" },
-  { value: "Programvare & verktøy", label: "Programvare" },
-  { value: "Utstyr & hardware", label: "Utstyr" },
-  { value: "Mat & drikke", label: "Mat" },
-  { value: "Transport", label: "Transport" },
-  { value: "Annet", label: "Annet" }
+  { value: "with_recurring", label: "Fast post" }
 ] as const;
 
 function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
+}
+
+function needsAttention(entry: Entry) {
+  if (entry.isProjected || entry.reportingTreatment === "offset_hidden") {
+    return false;
+  }
+
+  return !entry.workspaceId || entry.cat === "Annet" || Boolean(entry.recommendedRecurringMatch && !entry.recurringItemId);
 }
 
 export function TransactionsClient({
@@ -58,8 +61,6 @@ export function TransactionsClient({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["value"]>("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [bulkCategory, setBulkCategory] = useState<(typeof CATEGORIES)[number]>("Annet");
-  const [bulkWorkspaceId, setBulkWorkspaceId] = useState(currentWorkspaceId === "all" ? "" : currentWorkspaceId);
   const [bulkBusy, setBulkBusy] = useState(false);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
@@ -90,10 +91,19 @@ export function TransactionsClient({
           return entry.type === filter;
         }
 
-        return entry.cat === filter;
+        if (filter === "needs_attention") {
+          return needsAttention(entry);
+        }
+
+        if (filter === "with_recurring") {
+          return Boolean(entry.recurringItemId);
+        }
+
+        return true;
       })
       .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
   }, [monthEntries, query, filter]);
+  const unresolvedCount = monthEntries.filter((entry) => needsAttention(entry)).length;
 
   const selectableEntries = filteredEntries.filter((entry) => !entry.isProjected);
   const allSelectableVisibleIds = selectableEntries.map((entry) => entry.id);
@@ -149,42 +159,10 @@ export function TransactionsClient({
     }
   }
 
-  async function handleBulkRecategorize() {
-    if (selectedIds.length === 0 || bulkBusy) {
-      return;
-    }
-
-    setBulkBusy(true);
-
-    try {
-      const response = await fetch("/api/entries", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          ids: selectedIds,
-          kind: "entry",
-          cat: bulkCategory,
-          workspaceId: bulkWorkspaceId || null
-        })
-      });
-
-      if (!response.ok) {
-        const json = (await response.json().catch(() => ({}))) as { message?: string };
-        throw new Error(json.message || "Kunne ikke oppdatere valgte transaksjoner.");
-      }
-
-      window.location.reload();
-    } catch (error) {
-      window.alert(error instanceof Error ? error.message : "Kunne ikke oppdatere valgte transaksjoner.");
-      setBulkBusy(false);
-    }
-  }
-
   return (
     <>
       <Topbar
+        accountId={accountId}
         accountSlug={accountSlug}
         accounts={accounts}
         actions={
@@ -212,42 +190,39 @@ export function TransactionsClient({
       />
       <div className={styles.content}>
         <div className={styles.page}>
+          <section className={styles.transactionsFocus}>
+            <div>
+              <div className={styles.sectionDivider}>Månedens arbeid</div>
+              <div className={styles.overviewFocusText}>
+                Start med radene som mangler prosjekt, fortsatt står som <span className={styles.inlineCode}>Annet</span>,
+                eller ser ut som en fast post som bør avklares.
+              </div>
+            </div>
+            <div className={styles.transactionsFocusStats}>
+              <div className={styles.transactionsFocusStat}>
+                <span className={styles.cardLabel}>Trenger avklaring</span>
+                <span className={styles.transactionsFocusValue}>{unresolvedCount}</span>
+              </div>
+              <div className={styles.transactionsFocusStat}>
+                <span className={styles.cardLabel}>Valgt filter</span>
+                <span className={styles.transactionsFocusValue}>
+                  {FILTERS.find((item) => item.value === filter)?.label ?? "Alle"}
+                </span>
+              </div>
+            </div>
+          </section>
+
           <div className={styles.listToolbar}>
             {selectedIds.length > 0 ? (
               <div className={styles.bulkBar}>
                 <div className={styles.bulkCount}>{selectedIds.length} valgt</div>
-                <select
-                  className={cx(styles.select, styles.bulkSelect)}
-                  disabled={bulkBusy}
-                  onChange={(event) => setBulkCategory(event.target.value as (typeof CATEGORIES)[number])}
-                  value={bulkCategory}
-                >
-                  {CATEGORIES.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className={cx(styles.select, styles.bulkSelect)}
-                  disabled={bulkBusy}
-                  onChange={(event) => setBulkWorkspaceId(event.target.value)}
-                  value={bulkWorkspaceId}
-                >
-                  <option value="">Uten prosjekt</option>
-                  {workspaces.map((workspace) => (
-                    <option key={workspace.id} value={workspace.id}>
-                      {workspace.name}
-                    </option>
-                  ))}
-                </select>
                 <button
                   className={styles.smallButton}
                   disabled={bulkBusy}
-                  onClick={handleBulkRecategorize}
+                  onClick={() => setSelectedIds([])}
                   type="button"
                 >
-                  {bulkBusy ? "Jobber..." : "Oppdater valgte"}
+                  Fjern valg
                 </button>
                 <button
                   className={styles.smallButton}
@@ -271,6 +246,11 @@ export function TransactionsClient({
                     </option>
                   ))}
                 </select>
+                <div className={styles.listToolbarHint}>
+                  {unresolvedCount > 0
+                    ? `${unresolvedCount} transaksjoner trenger fortsatt avklaring`
+                    : "Alle transaksjoner for måneden er avklart"}
+                </div>
               </div>
             )}
           </div>

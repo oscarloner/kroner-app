@@ -10,6 +10,10 @@ function cx(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
+function recurringBadgeLabel(entry: Entry) {
+  return entry.type === "income" ? "Fast inntekt" : "Fast kostnad";
+}
+
 export function EntryRow({
   entry,
   workspace,
@@ -91,7 +95,9 @@ export function EntryRow({
             <span className={styles.txMetaItem}>{entry.date}</span>
             <span className={cx(styles.typeBadge, typeClass)}>{typeLabel}</span>
             {linkedRecurring ? (
-              <span className={styles.recurringLinkBadge}>Koblet til {linkedRecurring.name}</span>
+              <span className={styles.recurringLinkBadge}>
+                {recurringBadgeLabel(entry)}: {linkedRecurring.name}
+              </span>
             ) : null}
             <span className={styles.workspaceBadge}>
               <span
@@ -109,7 +115,9 @@ export function EntryRow({
         <div className={cx(styles.typeBadge, typeClass)}>{typeLabel}</div>
         <div className={styles.txCategoryCell}>
           {linkedRecurring ? (
-            <span className={styles.recurringLinkBadge}>Koblet til {linkedRecurring.name}</span>
+            <span className={styles.recurringLinkBadge}>
+              {recurringBadgeLabel(entry)}: {linkedRecurring.name}
+            </span>
           ) : null}
           <div className={styles.workspaceBadge}>
             <span
@@ -125,7 +133,7 @@ export function EntryRow({
         <div className={styles.txActionCell}>
           {deleteKind === "entry" && !isProjectedRecurring && recurringItems?.length ? (
             <button className={styles.editButton} onClick={() => setRecurringOpen(true)} type="button">
-              Fast post
+              {linkedRecurring ? "Endre fast post" : "Avklar fast post"}
             </button>
           ) : null}
           {deletable && deleteKind && !isProjectedRecurring && workspaces?.length ? (

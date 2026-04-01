@@ -181,6 +181,7 @@ export function KnownRulesClient({
   return (
     <>
       <Topbar
+        accountId={accountId}
         accountSlug={accountSlug}
         accounts={accounts}
         currentAccountId={currentAccountId}

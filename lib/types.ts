@@ -95,6 +95,7 @@ export type Entry = {
   transactionKind?: BankTransactionKind | null;
   reportingTreatment?: BankReportingTreatment | null;
   recurringItemId?: string | null;
+  recommendedRecurringMatch?: RecurringMatchCandidate | null;
   sourceKind?: "entry" | "recurring";
   recurringType?: RecurringType | null;
   projectedFromRecurringId?: string | null;
@@ -115,6 +116,15 @@ export type RecurringItem = {
   link: string | null;
   dayOfMonth: number;
   createdAt: string;
+};
+
+export type RecurringMatchCandidate = {
+  itemId: string;
+  itemName: string;
+  score: number;
+  cat: string;
+  workspaceId: string | null;
+  type: RecurringType;
 };
 
 export type DashboardData = {
@@ -255,6 +265,7 @@ export type BankImportReviewItem = {
   suggestedAction: BankImportAction;
   selectedAction: BankImportAction | null;
   suggestedMatch: BankMatchCandidate | null;
+  recommendedRecurringMatch?: RecurringMatchCandidate | null;
   suggestion: BankSuggestion | null;
   transactionKind: BankTransactionKind;
   confidenceScore: number;

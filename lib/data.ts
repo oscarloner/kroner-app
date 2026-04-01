@@ -1,5 +1,6 @@
 import { getAccountContext } from "@/lib/accounts";
 import { getCurrentMonthKey, getMonthBounds, parseMonthKey } from "@/lib/month";
+import { attachRecurringRecommendations } from "@/lib/recurring-match";
 import type { DashboardData, Entry, RecurringItem, Workspace } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -46,6 +47,18 @@ type RecurringRow = {
   day_of_month: number;
   created_at: string;
 };
+
+function getErrorMessage(error: { message?: string } | null | undefined, fallback: string) {
+  return error?.message || fallback;
+}
+
+function isMissingRecurringItemColumn(error: { message?: string } | null | undefined) {
+  return error?.message?.includes("entries.recurring_item_id does not exist") ?? false;
+}
+
+function mapEntryRows(rows: unknown[] | null | undefined) {
+  return (rows ?? []).map((row) => mapEntry(row as EntryRow));
+}
 
 function mapWorkspace(row: WorkspaceRow): Workspace {
   return {
@@ -234,16 +247,28 @@ export async function getDashboardData(
       ? null
       : workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
   const currentWorkspaceId = currentWorkspace?.id ?? "all";
+  const entrySelectWithRecurring =
+    "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, recurring_item_id, source_workspace_id, date, link, note, created_at";
+  const entrySelectWithoutRecurring =
+    "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, source_workspace_id, date, link, note, created_at";
 
-  let monthEntriesQuery = supabase
-    .from("entries")
-    .select(
-      "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, recurring_item_id, source_workspace_id, date, link, note, created_at"
-    )
-    .eq("account_id", accountContext.currentAccount.id)
-    .gte("date", monthBounds.start)
-    .lte("date", monthBounds.end)
-    .order("date", { ascending: false });
+  const buildMonthEntriesQuery = (includeRecurringItemId: boolean) =>
+    supabase
+      .from("entries")
+      .select(includeRecurringItemId ? entrySelectWithRecurring : entrySelectWithoutRecurring)
+      .eq("account_id", accountContext.currentAccount.id)
+      .gte("date", monthBounds.start)
+      .lte("date", monthBounds.end)
+      .order("date", { ascending: false });
+
+  const buildHistoricalEntriesQuery = (includeRecurringItemId: boolean) =>
+    supabase
+      .from("entries")
+      .select(includeRecurringItemId ? entrySelectWithRecurring : entrySelectWithoutRecurring)
+      .eq("account_id", accountContext.currentAccount.id)
+      .order("date", { ascending: false });
+
+  let monthEntriesQuery = buildMonthEntriesQuery(true);
 
   let recurringQuery = supabase
     .from("recurring_items")
@@ -260,13 +285,7 @@ export async function getDashboardData(
 
   const historicalEntriesPromise = includeHistoricalEntries
     ? (() => {
-        let query = supabase
-          .from("entries")
-          .select(
-            "id, account_id, created_by, legacy_id, name, amount, type, cat, workspace_id, recurring_item_id, source_workspace_id, date, link, note, created_at"
-          )
-          .eq("account_id", accountContext.currentAccount.id)
-          .order("date", { ascending: false });
+        let query = buildHistoricalEntriesQuery(true);
 
         if (currentWorkspace) {
           query = query.eq("workspace_id", currentWorkspace.id);
@@ -276,27 +295,57 @@ export async function getDashboardData(
       })()
     : Promise.resolve({ data: null, error: null });
 
-  const [monthEntriesRes, recurringRes, historicalEntriesRes] = await Promise.all([
+  let [monthEntriesRes, recurringRes, historicalEntriesRes] = await Promise.all([
     monthEntriesQuery,
     recurringQuery,
     historicalEntriesPromise
   ]);
 
+  if (
+    isMissingRecurringItemColumn(monthEntriesRes.error) ||
+    isMissingRecurringItemColumn(historicalEntriesRes.error)
+  ) {
+    let fallbackMonthEntriesQuery = buildMonthEntriesQuery(false);
+
+    if (currentWorkspace) {
+      fallbackMonthEntriesQuery = fallbackMonthEntriesQuery.eq("workspace_id", currentWorkspace.id);
+    }
+
+    const fallbackHistoricalEntriesPromise = includeHistoricalEntries
+      ? (() => {
+          let query = buildHistoricalEntriesQuery(false);
+
+          if (currentWorkspace) {
+            query = query.eq("workspace_id", currentWorkspace.id);
+          }
+
+          return query;
+        })()
+      : Promise.resolve({ data: null, error: null });
+
+    [monthEntriesRes, historicalEntriesRes] = await Promise.all([
+      fallbackMonthEntriesQuery,
+      fallbackHistoricalEntriesPromise
+    ]);
+  }
+
   if (monthEntriesRes.error) {
-    throw new Error(monthEntriesRes.error.message);
+    throw new Error(getErrorMessage(monthEntriesRes.error, "Kunne ikke hente transaksjoner for måneden."));
   }
 
   if (recurringRes.error) {
-    throw new Error(recurringRes.error.message);
+    throw new Error(getErrorMessage(recurringRes.error, "Kunne ikke hente faste poster."));
   }
 
   if (historicalEntriesRes.error) {
-    throw new Error(historicalEntriesRes.error.message);
+    throw new Error(
+      getErrorMessage(historicalEntriesRes.error, "Kunne ikke hente historiske transaksjoner.")
+    );
   }
 
-  const monthEntryRows = (monthEntriesRes.data ?? []).map(mapEntry);
+  const monthEntryRows = mapEntryRows(monthEntriesRes.data);
   const historicalEntryRows = includeHistoricalEntries
-    ? (historicalEntriesRes.data ?? []).map(mapEntry)
+    ? mapEntryRows(historicalEntriesRes.data)
     : monthEntryRows;
   const entryIds = Array.from(new Set(historicalEntryRows.map((entry) => entry.id)));
   let importMetadataRows: EntryImportMetadataRow[] = [];
@@ -309,15 +358,21 @@ export async function getDashboardData(
       .in("applied_entry_id", entryIds);
 
     if (metadataRes.error) {
-      throw new Error(metadataRes.error.message);
+      throw new Error(getErrorMessage(metadataRes.error, "Kunne ikke hente importmetadata."));
     }
 
     importMetadataRows = (metadataRes.data ?? []) as EntryImportMetadataRow[];
   }
 
-  const actualMonthEntries = applyEntryImportMetadata(monthEntryRows, importMetadataRows);
-  const filteredEntries = applyEntryImportMetadata(historicalEntryRows, importMetadataRows);
   const filteredRecurringItems = (recurringRes.data ?? []).map(mapRecurring);
+  const actualMonthEntries = attachRecurringRecommendations(
+    applyEntryImportMetadata(monthEntryRows, importMetadataRows),
+    filteredRecurringItems
+  );
+  const filteredEntries = attachRecurringRecommendations(
+    applyEntryImportMetadata(historicalEntryRows, importMetadataRows),
+    filteredRecurringItems
+  );
   const projectedMonthEntries = filteredRecurringItems
     .filter((item) => !isProjectedDuplicate(item, actualMonthEntries, selectedMonthKey))
     .map((item) => projectRecurringEntry(item, selectedMonthKey));

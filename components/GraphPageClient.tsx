@@ -41,6 +41,7 @@ export function GraphPageClient({
   return (
     <>
       <Topbar
+        accountId={accountId}
         accountSlug={accountSlug}
         accounts={accounts}
         actions={
