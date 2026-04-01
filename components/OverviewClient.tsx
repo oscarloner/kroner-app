@@ -170,6 +170,11 @@ export function OverviewClient({
                 <div className={styles.cardSub}>rader å gå gjennom</div>
               </article>
               <article className={styles.card}>
+                <div className={styles.cardLabel}>Faste inntekter</div>
+                <div className={cx(styles.cardValue, styles.fixedValue)}>{formatCurrency(fixed)}</div>
+                <div className={styles.cardSub}>{fixedItems.length} kilder</div>
+              </article>
+              <article className={styles.card}>
                 <div className={styles.cardLabel}>Inntekter</div>
                 <div className={cx(styles.cardValue, styles.incomeValue)}>{formatCurrency(totalIncome)}</div>
                 <div className={styles.cardSub}>
@@ -242,11 +247,6 @@ export function OverviewClient({
           </section>
 
           <section className={styles.cards}>
-            <article className={styles.card}>
-              <div className={styles.cardLabel}>Faste inntekter</div>
-              <div className={cx(styles.cardValue, styles.fixedValue)}>{formatCurrency(fixed)}</div>
-              <div className={styles.cardSub}>{fixedItems.length} kilder</div>
-            </article>
             <article className={styles.card}>
               <div className={styles.cardLabel}>Faste utgifter</div>
               <div className={cx(styles.cardValue, styles.subValue)}>{formatCurrency(subscriptions)}</div>

@@ -19,6 +19,7 @@ type ApplyDecision = {
   workspaceId?: string | null;
   matchEntryId?: string | null;
   transactionKind?: BankTransactionKind;
+  recurringMode?: "none" | "auto" | "link" | "create";
   recurringItemId?: string | null;
   recurringName?: string;
   recurringCat?: string;
@@ -93,6 +94,22 @@ function resolveCategory(value: string | undefined, fallback: string) {
 
 function recurringTypeForEntryType(type: EntryType): RecurringType {
   return type === "income" ? "fixed" : "sub";
+}
+
+function isRecurringTransactionKind(kind: BankTransactionKind) {
+  return kind === "subscription_expense" || kind === "subscription_income";
+}
+
+function entryTypeForTransactionKind(kind: BankTransactionKind) {
+  if (kind === "subscription_income") {
+    return "income" as EntryType;
+  }
+
+  if (kind === "subscription_expense") {
+    return "expense" as EntryType;
+  }
+
+  return null;
 }
 
 function resolveRecurringDefaults(args: {
@@ -451,17 +468,35 @@ export async function POST(
         continue;
       }
 
-      const chosenType = decision.type ?? transaction.entry_type;
+      const chosenType =
+        entryTypeForTransactionKind(chosenTransactionKind) ?? decision.type ?? transaction.entry_type;
       const chosenCat = resolveCategory(decision.cat, "Annet");
       const workspaceId = normalizeWorkspaceId(
         decision.workspaceId ?? ((batch as BatchRow).default_workspace_id ?? null)
       );
+      const derivedRecurringMode =
+        decision.action === "import_new"
+          ? decision.recurringMode ??
+            (isRecurringTransactionKind(chosenTransactionKind) ? "auto" : "none")
+          : "none";
+      const effectiveRecurringAction =
+        decision.action === "import_new"
+          ? derivedRecurringMode === "link"
+            ? "link_recurring"
+            : derivedRecurringMode === "create"
+              ? "create_recurring"
+              : derivedRecurringMode === "auto"
+                ? decision.recurringItemId
+                  ? "link_recurring"
+                  : "create_recurring"
+                : "import_new"
+          : decision.action;
 
       let recurringItemId: string | null = null;
       let learningCategory = chosenCat;
       let learningWorkspaceId = workspaceId;
 
-      if (decision.action === "link_recurring") {
+      if (effectiveRecurringAction === "link_recurring") {
         if (!decision.recurringItemId) {
           throw new Error(`Missing recurring item for ${transaction.raw_label}.`);
         }
@@ -480,7 +515,7 @@ export async function POST(
         learningWorkspaceId = recurring.workspace_id;
       }
 
-      if (decision.action === "create_recurring") {
+      if (effectiveRecurringAction === "create_recurring") {
         const recurringDefaults = resolveRecurringDefaults({
           decision,
           transaction,
@@ -542,7 +577,7 @@ export async function POST(
       const { error: updateTransactionError } = await supabase
         .from("bank_transactions")
         .update({
-          selected_action: decision.action,
+          selected_action: effectiveRecurringAction,
           applied_entry_id: appliedEntryId,
           transaction_kind: chosenTransactionKind,
           status: "applied"
