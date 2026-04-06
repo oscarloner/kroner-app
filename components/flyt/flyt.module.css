@@ -1,0 +1,502 @@
+/* ============================================================
+   Flyt canvas — dark theme, scoped to .canvasWrap
+   ============================================================ */
+
+.canvasWrap {
+  flex: 1;
+  overflow: hidden;
+  background: #13131f;
+  height: 100%;
+
+  /* React Flow CSS custom property overrides */
+  --xy-background-color: #13131f;
+  --xy-node-background-color: #1e1e30;
+  --xy-node-color: #e2e2f0;
+  --xy-node-border: 1px solid #2e2e4a;
+  --xy-node-border-radius: 8px;
+  --xy-node-boxshadow-hover: 0 0 0 2px rgba(99, 102, 241, 0.4);
+  --xy-node-boxshadow-selected: 0 0 0 2px #6366f1;
+  --xy-edge-stroke: #3a3a5c;
+  --xy-edge-stroke-selected: #a5b4fc;
+  --xy-selection-background-color: rgba(99, 102, 241, 0.1);
+  --xy-selection-border: 1px solid rgba(99, 102, 241, 0.5);
+  --xy-controls-button-background-color: #1e1e30;
+  --xy-controls-button-background-color-hover: #2e2e4a;
+  --xy-controls-button-color: #a0a0c0;
+  --xy-controls-button-border-color: #2e2e4a;
+  --xy-minimap-background-color: #1a1a2e;
+  --xy-minimap-mask-background-color: rgba(19, 19, 31, 0.6);
+  --xy-minimap-node-background-color: #2e2e4a;
+}
+
+/* ============================================================
+   Handles
+   ============================================================ */
+
+.handle {
+  width: 8px !important;
+  height: 8px !important;
+  background: #3a3a5c !important;
+  border: 1px solid #5a5a7c !important;
+  border-radius: 50% !important;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.handle:hover {
+  background: #6366f1 !important;
+  transform: scale(1.4);
+}
+
+/* ============================================================
+   Item node
+   ============================================================ */
+
+.itemNode {
+  background: #1e1e30;
+  border: 1px solid #2e2e4a;
+  border-left: 3px solid transparent;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 160px;
+  max-width: 240px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.nodeLabel {
+  font-size: 12px;
+  color: #c0c0d8;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.nodeAmount {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-geist-mono, ui-monospace), monospace;
+}
+
+/* ============================================================
+   Source node
+   ============================================================ */
+
+.sourceNode {
+  border: 2px solid transparent;
+  border-radius: 12px;
+  padding: 12px 20px;
+  min-width: 120px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sourceLabel {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+/* ============================================================
+   Group node
+   ============================================================ */
+
+.groupNode {
+  background: #1a1a2e;
+  border: 1.5px dashed #3a3a6a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  min-width: 180px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.groupToggle {
+  font-size: 11px;
+  color: #8080a0;
+  cursor: pointer;
+}
+
+.groupLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #c0c0d8;
+  flex: 1;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.groupCount {
+  font-size: 11px;
+  background: #2e2e4a;
+  color: #8080a0;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-variant-numeric: tabular-nums;
+}
+
+.groupTotal {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+  margin-top: 4px;
+  font-family: var(--font-geist-mono, ui-monospace), monospace;
+}
+
+/* ============================================================
+   Toolbar
+   ============================================================ */
+
+.toolbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: #1e1e30cc;
+  backdrop-filter: blur(8px);
+  border: 1px solid #2e2e4a;
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.toolbarBtn {
+  background: #2e2e4a;
+  color: #c0c0d8;
+  border: 1px solid #3e3e5a;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.toolbarBtn:hover {
+  background: #3e3e5a;
+  color: #e2e2f0;
+}
+
+.toolbarBtnDanger {
+  composes: toolbarBtn;
+  color: #f87171;
+  border-color: #4a2e2e;
+}
+
+.toolbarBtnDanger:hover {
+  background: #3a1e1e;
+  color: #fca5a5;
+}
+
+.toolbarPrompt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbarInput {
+  background: #13131f;
+  border: 1px solid #3e3e5a;
+  border-radius: 6px;
+  color: #e2e2f0;
+  padding: 4px 10px;
+  font-size: 12px;
+  outline: none;
+  width: 160px;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.toolbarInput:focus {
+  border-color: #6366f1;
+}
+
+.toolbarConfirm {
+  composes: toolbarBtn;
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.toolbarConfirm:hover {
+  background: #4f46e5;
+}
+
+.toolbarCancel {
+  composes: toolbarBtn;
+  padding: 5px 8px;
+}
+
+/* ============================================================
+   Node Inspector (right panel)
+   ============================================================ */
+
+.inspector {
+  position: absolute;
+  top: 60px;
+  right: 16px;
+  width: 240px;
+  background: #1e1e30;
+  border: 1px solid #2e2e4a;
+  border-radius: 10px;
+  padding: 14px;
+  z-index: 20;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inspectorHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.inspectorTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8080a0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorClose {
+  background: none;
+  border: none;
+  color: #6060808;
+  color: #6060a0;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.inspectorClose:hover {
+  color: #c0c0d8;
+}
+
+.inspectorLabel {
+  font-size: 11px;
+  color: #6060a0;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorInput {
+  background: #13131f;
+  border: 1px solid #3e3e5a;
+  border-radius: 6px;
+  color: #e2e2f0;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorInput:focus {
+  border-color: #6366f1;
+}
+
+.inspectorSelect {
+  composes: inspectorInput;
+  cursor: pointer;
+}
+
+.inspectorActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.inspectorSave {
+  flex: 1;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorSave:hover {
+  background: #4f46e5;
+}
+
+.inspectorSecondary {
+  flex: 1;
+  background: #2e2e4a;
+  color: #c0c0d8;
+  border: 1px solid #3e3e5a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorDelete {
+  background: none;
+  border: 1px solid #4a2e2e;
+  border-radius: 6px;
+  color: #f87171;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.inspectorDelete:hover {
+  background: #3a1e1e;
+}
+
+/* ============================================================
+   Color picker
+   ============================================================ */
+
+.colorPicker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.colorSwatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Import panel
+   ============================================================ */
+
+.importPanel {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 380px;
+  background: #1e1e30;
+  border: 1px solid #2e2e4a;
+  border-radius: 10px;
+  padding: 16px;
+  z-index: 30;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fileInput {
+  font-size: 12px;
+  color: #8080a0;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.importTextarea {
+  background: #13131f;
+  border: 1px solid #3e3e5a;
+  border-radius: 6px;
+  color: #c0c0d8;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-family: var(--font-geist-mono, ui-monospace), monospace;
+  resize: vertical;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.importTextarea:focus {
+  border-color: #6366f1;
+}
+
+.importError {
+  color: #f87171;
+  font-size: 12px;
+  background: #3a1e1e;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.importPreviewLabel {
+  font-size: 11px;
+  color: #6060a0;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.importPreview {
+  background: #13131f;
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.importPreviewItem {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #c0c0d8;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.importPreviewItem:hover {
+  background: #1e1e30;
+}
+
+.importPreviewMore {
+  font-size: 11px;
+  color: #6060a0;
+  padding: 3px 6px;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+/* ============================================================
+   Empty state hint
+   ============================================================ */
+
+.emptyHint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  color: #3a3a5c;
+}
+
+.emptyHintTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #4a4a6a;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}
+
+.emptyHintSub {
+  font-size: 13px;
+  color: #3a3a5c;
+  font-family: var(--font-geist-sans, ui-sans-serif), sans-serif;
+}

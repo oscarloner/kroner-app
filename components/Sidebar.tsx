@@ -10,7 +10,8 @@ const NAV_ITEMS = [
   { href: "/", label: "Oversikt", icon: "◈" },
   { href: "/transaksjoner", label: "Transaksjoner", icon: "↕" },
   { href: "/faste", label: "Faste inntekter", icon: "★" },
-  { href: "/faste-utgifter", label: "Faste utgifter", icon: "↻" }
+  { href: "/faste-utgifter", label: "Faste utgifter", icon: "↻" },
+  { href: "/flyt", label: "Flyt", icon: "⬡" }
 ] as const;
 
 function cx(...values: Array<string | false | undefined>) {
